@@ -1,0 +1,13 @@
+{
+  "name": "mactv-kvm-bridge",
+  "version": "1.0.0",
+  "description": "macOS to Android TV Google TV Remote V2 KVM Bridge",
+  "main": "tv_remote_bridge.js",
+  "scripts": {
+    "start": "node tv_remote_bridge.js"
+  },
+  "dependencies": {
+    "androidtv-remote": "^1.0.10"
+  },
+  "private": true
+}
