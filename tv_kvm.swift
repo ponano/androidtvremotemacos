@@ -225,6 +225,11 @@ class KVMView: NSView {
             }
             CGWarpMouseCursorPosition(exitPoint)
             
+            // Сбрасываем текстовый буфер на мосте
+            if let delegate = NSApp.delegate as? AppDelegate {
+                delegate.socketClient.send(cmd: "RESET")
+            }
+            
             // Показываем курсор обратно на Макбуке
             NSCursor.unhide()
             
@@ -400,12 +405,18 @@ class KVMView: NSView {
         if event.keyCode == 123 { sendNavKey("KEYCODE_DPAD_LEFT"); return }
         if event.keyCode == 124 { sendNavKey("KEYCODE_DPAD_RIGHT"); return }
         
-        // Обработка текстового набора букв
+        // Обработка текстового набора букв через нативный IME ввод (поддерживает EN/RU)
         if let chars = event.characters, !chars.isEmpty {
             for char in chars {
-                let charStr = String(char).uppercased()
-                if let keyCode = mapCharToKeyCode(charStr) {
-                    sendKey(keyCode)
+                // Пропускаем только печатные символы с кодом >= 32 (исключая Backspace 127)
+                let scalars = char.unicodeScalars
+                if let first = scalars.first, first.value >= 32 && first.value != 127 {
+                    let charStr = String(char)
+                    if let base64Char = charStr.data(using: .utf8)?.base64EncodedString() {
+                        if let delegate = NSApp.delegate as? AppDelegate {
+                            delegate.socketClient.send(cmd: "CHAR \(base64Char)")
+                        }
+                    }
                 }
             }
         }
@@ -463,6 +474,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var socketClient = SocketClient()
     var lastStatus: String = "DISCONNECTED"
+    var shouldAutoConnect = true
     
     var kvmView: KVMView? {
         return window?.contentView as? KVMView
@@ -643,6 +655,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         // Если сопряжение уже выполнено, даем кнопку подключения
                         menu.addItem(NSMenuItem(title: "Подключить к ТВ", action: #selector(self.connectKVM), keyEquivalent: "c"))
                         menu.addItem(NSMenuItem(title: "Разорвать сопряжение (Забыть ТВ)", action: #selector(self.unpairKVM), keyEquivalent: "u"))
+                        
+                        if self.shouldAutoConnect {
+                            self.shouldAutoConnect = false
+                            // Небольшая задержка 0.5с, чтобы дать сокету полностью инициализироваться
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                                self?.connectKVM()
+                            }
+                        }
                     } else {
                         // Если сопряжения еще нет, даем кнопку запуска сопряжения
                         menu.addItem(NSMenuItem(title: "Запустить сопряжение (Pairing)", action: #selector(self.startPairing), keyEquivalent: "p"))

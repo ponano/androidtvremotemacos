@@ -10,6 +10,14 @@ echo "===================================================="
 npm install --cache ./npm-cache
 
 echo "===================================================="
+echo " 🛠️ Применение патчей библиотеки androidtv-remote..."
+echo "===================================================="
+cp -f lib_patches/remote/remotemessage.proto node_modules/androidtv-remote/dist/remote/remotemessage.proto
+cp -f lib_patches/remote/remotemessage.proto node_modules/androidtv-remote/src/remote/remotemessage.proto
+cp -f lib_patches/remote/RemoteManager.js node_modules/androidtv-remote/dist/remote/RemoteManager.js
+cp -f lib_patches/remote/RemoteManager.js node_modules/androidtv-remote/src/remote/RemoteManager.js
+
+echo "===================================================="
 echo " 🛠️ Компиляция нативного KVM-моста на Swift..."
 echo "===================================================="
 swiftc tv_kvm.swift -o tv_kvm
