@@ -6,11 +6,17 @@ import Network
 // ==========================================
 // Ширина триггерной зоны захвата на краю экрана (окно больше не расширяется, исключая пересечение полей)
 let INITIAL_ZONE_WIDTH = 8.0
-// Порог накопления движения (пиксели) для фиксации одного шага D-pad (свайпа) - уменьшен для плавности
-let SWIPE_THRESHOLD = 20.0
+// Порог накопления движения (пиксели) для фиксации одного шага D-pad (свайпа) - увеличен для исключения резкости
+let SWIPE_THRESHOLD = 40.0
 // Порог накопления прокрутки для фиксации одного шага D-pad (увеличен для плавной дискретной прокрутки)
-let SCROLL_THRESHOLD = 8.0
+let SCROLL_THRESHOLD = 15.0
 // ==========================================
+
+enum KVMEdge: String {
+    case right = "RIGHT"
+    case left = "LEFT"
+    case top = "TOP"
+}
 
 class SocketClient {
     var connection: NWConnection?
@@ -92,6 +98,7 @@ class SocketClient {
 
 class KVMView: NSView {
     var isActive = false
+    var activeEdge: KVMEdge = .right
     
     var macWidth = 1440.0
     var macHeight = 900.0
@@ -102,6 +109,7 @@ class KVMView: NSView {
     var lastKeySentTime = Date()
     var lastScrollGestureTime = Date()
     var lastScrollKeyTime = Date()
+    var activationTimer: Timer?
     
     private var trackingArea: NSTrackingArea?
     
@@ -140,8 +148,8 @@ class KVMView: NSView {
     
     func sendNavKey(_ key: String) {
         let now = Date()
-        // Кулдаун 65 мс между командами навигации для идеальной плавности без дрифта фокуса
-        if now.timeIntervalSince(lastKeySentTime) >= 0.065 {
+        // Кулдаун 120 мс между командами навигации для идеальной плавности без дрифта фокуса
+        if now.timeIntervalSince(lastKeySentTime) >= 0.12 {
             sendKey(key)
             lastKeySentTime = now
         }
@@ -149,27 +157,50 @@ class KVMView: NSView {
     
     override func mouseEntered(with event: NSEvent) {
         if !isActive {
-            isActive = true
-            print("\n>>> РЕЖИМ УПРАВЛЕНИЯ ТВ АКТИВЕН (Трекпад захвачен) <<<")
-            print("Для возврата на Mac проведите пальцем влево или нажмите Escape / Option.")
+            // Отменяем любой предыдущий таймер на всякий случай
+            activationTimer?.invalidate()
             
-            accumulatedX = 0.0
-            accumulatedY = 0.0
-            
-            // Временно переключаем активационную политику приложения на .regular.
-            // Без этого операционная система блокирует фокус ввода (key window) для фоновых агентов (.accessory),
-            // из-за чего клавиатура и ввод текста не перехватывались.
-            NSApp.setActivationPolicy(.regular)
-            
-            DispatchQueue.main.async {
-                NSApp.activate(ignoringOtherApps: true)
-                self.window?.makeKeyAndOrderFront(nil)
-                self.window?.makeFirstResponder(self)
+            // Запускаем таймер задержки на 0.8 секунды (800 мс).
+            // Если мышь останется прижатой к выбранному краю в течение этого времени, включится режим ТВ.
+            // Это идеальная защита от случайных уходов курсора при скроллинге или кликах на Mac.
+            activationTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in
+                guard let self = self else { return }
+                self.enterTVMode()
             }
-            
-            // Скрываем курсор на Макбуке
-            NSCursor.hide()
         }
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        // Если мышь покинула триггерную зону ДО того, как истекли 450 мс,
+        // мы просто отменяем таймер. Режим KVM не включится!
+        if !isActive {
+            activationTimer?.invalidate()
+            activationTimer = nil
+        }
+    }
+    
+    func enterTVMode() {
+        guard !isActive else { return }
+        isActive = true
+        print("\n>>> РЕЖИМ УПРАВЛЕНИЯ ТВ АКТИВЕН (Трекпад захвачен) <<<")
+        print("Для возврата на Mac проведите пальцем влево или нажмите Escape / Option.")
+        
+        accumulatedX = 0.0
+        accumulatedY = 0.0
+        
+        // Временно переключаем активационную политику приложения на .regular.
+        // Без этого операционная система блокирует фокус ввода (key window) для фоновых агентов (.accessory),
+        // из-за чего клавиатура и ввод текста не перехватывались.
+        NSApp.setActivationPolicy(.regular)
+        
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            self.window?.makeKeyAndOrderFront(nil)
+            self.window?.makeFirstResponder(self)
+        }
+        
+        // Скрываем курсор на Макбуке
+        NSCursor.hide()
     }
     
     func exitTVMode() {
@@ -181,11 +212,18 @@ class KVMView: NSView {
             accumulatedY = 0.0
             accumulatedScrollY = 0.0
             
-            // Перемещаем курсор мыши чуть левее нашей триггерной зоны (на 50 пикселей),
-            // чтобы пользователь сразу увидел его и чтобы избежать моментального авто-захвата
-            let exitX = macWidth - 50.0
-            let centerY = macHeight / 2.0
-            CGWarpMouseCursorPosition(CGPoint(x: exitX, y: centerY))
+            // Перемещаем курсор мыши внутрь экрана Mac (на 50 пикселей от триггерной зоны)
+            // в зависимости от выбранного края перехода, чтобы избежать моментального авто-захвата
+            let exitPoint: CGPoint
+            switch activeEdge {
+            case .right:
+                exitPoint = CGPoint(x: macWidth - 50.0, y: macHeight / 2.0)
+            case .left:
+                exitPoint = CGPoint(x: 50.0, y: macHeight / 2.0)
+            case .top:
+                exitPoint = CGPoint(x: macWidth / 2.0, y: 50.0) // Y=0 верх в Core Graphics, смещаемся на 50 пикселей вниз
+            }
+            CGWarpMouseCursorPosition(exitPoint)
             
             // Показываем курсор обратно на Макбуке
             NSCursor.unhide()
@@ -215,10 +253,23 @@ class KVMView: NSView {
             accumulatedY = 0.0
         }
         
-        // Если пользователь уверенно ведет мышь влево для возврата на Mac (накопленный сдвиг влево >= 120 пикселей)
-        if accumulatedX <= -120.0 {
-            exitTVMode()
-            return
+        // Условия возврата на Mac на основе активной стороны KVM (требуется сдвиг >= 120 пикселей в противоположную сторону)
+        switch activeEdge {
+        case .right:
+            if accumulatedX <= -120.0 { // Движение влево для выхода
+                exitTVMode()
+                return
+            }
+        case .left:
+            if accumulatedX >= 120.0 { // Движение вправо для выхода
+                exitTVMode()
+                return
+            }
+        case .top:
+            if accumulatedY >= 120.0 { // Движение вниз для выхода (deltaY > 0)
+                exitTVMode()
+                return
+            }
         }
         
         // Обработка горизонтального свайпа с сохранением остатка дельты для плавной непрерывной навигации
@@ -243,12 +294,19 @@ class KVMView: NSView {
             }
         }
         
-        // Удерживаем курсор мыши строго по центру нашей триггерной полоски захвата (на самом краю экрана).
+        // Удерживаем курсор мыши строго по центру нашей триггерной полоски захвата.
         // Это блокирует курсор от вылета на рабочий стол Mac и случайных кликов,
         // позволяя считывать бесконечное плавное скольжение по трекпаду.
-        let centerX = macWidth - (INITIAL_ZONE_WIDTH / 2.0)
-        let centerY = macHeight / 2.0
-        CGWarpMouseCursorPosition(CGPoint(x: centerX, y: centerY))
+        let centerPoint: CGPoint
+        switch activeEdge {
+        case .right:
+            centerPoint = CGPoint(x: macWidth - (INITIAL_ZONE_WIDTH / 2.0), y: macHeight / 2.0)
+        case .left:
+            centerPoint = CGPoint(x: INITIAL_ZONE_WIDTH / 2.0, y: macHeight / 2.0)
+        case .top:
+            centerPoint = CGPoint(x: macWidth / 2.0, y: INITIAL_ZONE_WIDTH / 2.0)
+        }
+        CGWarpMouseCursorPosition(centerPoint)
     }
     
     override func mouseDown(with event: NSEvent) {
@@ -281,9 +339,9 @@ class KVMView: NSView {
         }
         
         if abs(accumulatedScrollY) >= SCROLL_THRESHOLD {
-            // Мягкий кулдаун отправки команд прокрутки списков на ТВ (100 мс)
+            // Мягкий кулдаун отправки команд прокрутки списков на ТВ (150 мс)
             // Это идеальная частота для автоповтора команд на Android TV
-            if now.timeIntervalSince(lastScrollKeyTime) >= 0.10 {
+            if now.timeIntervalSince(lastScrollKeyTime) >= 0.15 {
                 if accumulatedScrollY > 0 {
                     sendKey("KEYCODE_DPAD_UP")
                     accumulatedScrollY -= SCROLL_THRESHOLD
@@ -305,14 +363,14 @@ class KVMView: NSView {
             return
         }
         
-        // Управление громкостью ТВ: Control + Стрелка Вверх (громче) / Стрелка Вниз (тише)
-        // Это не пересекается с набором текста и невероятно интуитивно
-        if event.modifierFlags.contains(.control) {
-            if event.keyCode == 126 { // Control + Стрелка Вверх
+        // Управление громкостью ТВ: Control + Shift + Стрелка Вверх (громче) / Стрелка Вниз (тише)
+        // Это гарантированно не занято Mission Control в macOS и на 100% свободно
+        if event.modifierFlags.contains(.control) && event.modifierFlags.contains(.shift) {
+            if event.keyCode == 126 { // Control + Shift + Стрелка Вверх
                 sendKey("KEYCODE_VOLUME_UP")
                 return
             }
-            if event.keyCode == 125 { // Control + Стрелка Вниз
+            if event.keyCode == 125 { // Control + Shift + Стрелка Вниз
                 sendKey("KEYCODE_VOLUME_DOWN")
                 return
             }
@@ -404,10 +462,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     var statusItem: NSStatusItem!
     var socketClient = SocketClient()
+    var lastStatus: String = "DISCONNECTED"
     
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        print("[Swift] applicationDidFinishLaunching started. Initializing window...")
-        // Считываем размер экрана
+    var kvmView: KVMView? {
+        return window?.contentView as? KVMView
+    }
+    
+    func updateWindowFrame() {
+        guard let kvmView = self.kvmView else { return }
+        
         var screenWidth = 1440.0
         var screenHeight = 900.0
         if let screenFrame = NSScreen.main?.frame {
@@ -415,10 +478,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             screenHeight = Double(screenFrame.height)
         }
         
-        // Создаем абсолютно прозрачное и невидимое безрамочное окно на краю экрана
-        let initialRect = NSRect(x: screenWidth - INITIAL_ZONE_WIDTH, y: 0, width: INITIAL_ZONE_WIDTH, height: screenHeight)
+        let newRect: NSRect
+        switch kvmView.activeEdge {
+        case .right:
+            newRect = NSRect(x: screenWidth - INITIAL_ZONE_WIDTH, y: 0, width: INITIAL_ZONE_WIDTH, height: screenHeight)
+        case .left:
+            newRect = NSRect(x: 0, y: 0, width: INITIAL_ZONE_WIDTH, height: screenHeight)
+        case .top:
+            newRect = NSRect(x: 0, y: screenHeight - INITIAL_ZONE_WIDTH, width: screenWidth, height: INITIAL_ZONE_WIDTH)
+        }
+        
+        window?.setFrame(newRect, display: true)
+        kvmView.frame = NSRect(x: 0, y: 0, width: newRect.width, height: newRect.height)
+    }
+    
+    @objc func setEdgeToRight() { changeEdge(.right) }
+    @objc func setEdgeToLeft() { changeEdge(.left) }
+    @objc func setEdgeToTop() { changeEdge(.top) }
+    
+    func changeEdge(_ edge: KVMEdge) {
+        kvmView?.activeEdge = edge
+        UserDefaults.standard.set(edge.rawValue, forKey: "KVM_ActiveEdge")
+        updateWindowFrame()
+        updateStatusMenu(self.lastStatus)
+    }
+    
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        print("[Swift] applicationDidFinishLaunching started. Initializing window...")
+        
+        // Считываем сохраненную сторону KVM или берем по умолчанию .right
+        var initialEdge: KVMEdge = .right
+        if let savedRaw = UserDefaults.standard.string(forKey: "KVM_ActiveEdge"),
+           let savedEdge = KVMEdge(rawValue: savedRaw) {
+            initialEdge = savedEdge
+        }
+        
+        // Создаем абсолютно прозрачное и невидимое безрамочное окно
         window = KVMWindow(
-            contentRect: initialRect,
+            contentRect: .zero,
             styleMask: .borderless,
             backing: .buffered,
             defer: false
@@ -429,15 +526,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.level = .statusBar
         window.ignoresMouseEvents = false
         window.acceptsMouseMovedEvents = true
-        window.makeKeyAndOrderFront(nil)
         
         // Подключаем наш перехватчик событий
-        let kvmView = KVMView(frame: NSRect(x: 0, y: 0, width: INITIAL_ZONE_WIDTH, height: screenHeight))
+        let kvmView = KVMView(frame: .zero)
+        kvmView.activeEdge = initialEdge
         window.contentView = kvmView
         window.makeFirstResponder(kvmView)
         
         // Делаем иконку программы скрытой из Дока, чтобы не мешала
         NSApp.setActivationPolicy(.accessory)
+        
+        // Устанавливаем корректный фрейм триггерной зоны
+        updateWindowFrame()
         
         // Настройка Меню в строке состояния (Menu Bar)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -487,8 +587,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func updateStatusMenu(_ status: String) {
+        self.lastStatus = status
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            
+            // Управляем видимостью триггерного окна на краю экрана:
+            // Оно выводится на экран только при зеленом статусе READY (Подключен).
+            // Во всех остальных состояниях (Отключен, Подключение, Ввод PIN)
+            // триггерная область полностью скрывается, чтобы никак не мешать пользователю на Mac.
+            if status == "READY" {
+                self.window.makeKeyAndOrderFront(nil)
+            } else {
+                self.window.orderOut(nil)
+                if let kvmView = self.window.contentView as? KVMView {
+                    kvmView.exitTVMode()
+                }
+            }
             
             let menu = NSMenu()
             
@@ -535,6 +649,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             }
+            
+            menu.addItem(NSMenuItem.separator())
+            
+            // Настройка подменю с выбором сторон
+            let edgeMenu = NSMenu()
+            
+            let rightItem = NSMenuItem(title: "👉 Справа (по умолчанию)", action: #selector(self.setEdgeToRight), keyEquivalent: "")
+            rightItem.state = (self.kvmView?.activeEdge == .right) ? .on : .off
+            edgeMenu.addItem(rightItem)
+            
+            let leftItem = NSMenuItem(title: "👈 Слева", action: #selector(self.setEdgeToLeft), keyEquivalent: "")
+            leftItem.state = (self.kvmView?.activeEdge == .left) ? .on : .off
+            edgeMenu.addItem(leftItem)
+            
+            let topItem = NSMenuItem(title: "👆 Сверху", action: #selector(self.setEdgeToTop), keyEquivalent: "")
+            topItem.state = (self.kvmView?.activeEdge == .top) ? .on : .off
+            edgeMenu.addItem(topItem)
+            
+            let edgeMenuItem = NSMenuItem(title: "Сторона перехода на ТВ", action: nil, keyEquivalent: "")
+            edgeMenuItem.submenu = edgeMenu
+            menu.addItem(edgeMenuItem)
             
             menu.addItem(NSMenuItem.separator())
             menu.addItem(NSMenuItem(title: "Выйти из KVM", action: #selector(self.terminate), keyEquivalent: "q"))
