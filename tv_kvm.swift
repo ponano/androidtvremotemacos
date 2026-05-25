@@ -6,10 +6,10 @@ import Network
 // ==========================================
 // Ширина триггерной зоны захвата на краю экрана (окно больше не расширяется, исключая пересечение полей)
 let INITIAL_ZONE_WIDTH = 8.0
-// Порог накопления движения (пиксели) для фиксации одного шага D-pad (свайпа) - увеличен для исключения резкости
-let SWIPE_THRESHOLD = 40.0
+// Порог накопления движения (пиксели) для фиксации одного шага D-pad (свайпа) - увеличен для спокойных медленных жестов
+let SWIPE_THRESHOLD = 80.0
 // Порог накопления прокрутки для фиксации одного шага D-pad (увеличен для плавной дискретной прокрутки)
-let SCROLL_THRESHOLD = 15.0
+let SCROLL_THRESHOLD = 30.0
 // ==========================================
 
 enum KVMEdge: String {
@@ -148,8 +148,8 @@ class KVMView: NSView {
     
     func sendNavKey(_ key: String) {
         let now = Date()
-        // Кулдаун 120 мс между командами навигации для идеальной плавности без дрифта фокуса
-        if now.timeIntervalSince(lastKeySentTime) >= 0.12 {
+        // Кулдаун 250 мс между командами навигации для спокойной медленной навигации без пролетов
+        if now.timeIntervalSince(lastKeySentTime) >= 0.25 {
             sendKey(key)
             lastKeySentTime = now
         }
@@ -339,9 +339,9 @@ class KVMView: NSView {
         }
         
         if abs(accumulatedScrollY) >= SCROLL_THRESHOLD {
-            // Мягкий кулдаун отправки команд прокрутки списков на ТВ (150 мс)
+            // Мягкий кулдаун отправки команд прокрутки списков на ТВ (250 мс)
             // Это идеальная частота для автоповтора команд на Android TV
-            if now.timeIntervalSince(lastScrollKeyTime) >= 0.15 {
+            if now.timeIntervalSince(lastScrollKeyTime) >= 0.25 {
                 if accumulatedScrollY > 0 {
                     sendKey("KEYCODE_DPAD_UP")
                     accumulatedScrollY -= SCROLL_THRESHOLD
