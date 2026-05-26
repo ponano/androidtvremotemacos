@@ -362,8 +362,11 @@ class KVMView: NSView {
     override func keyDown(with event: NSEvent) {
         guard isActive else { return }
         
+        print("[Swift KVM] KeyDown event captured: keyCode=\(event.keyCode), modifierFlags=\(event.modifierFlags), chars=\"\(event.characters ?? "")\"")
+        
         // Escape (код 53) или Option (Alt) — мгновенный выход на Mac
         if event.keyCode == 53 || event.modifierFlags.contains(.option) {
+            print("[Swift KVM] Escape or Option key pressed. Exiting TV mode.")
             exitTVMode()
             return
         }
@@ -372,10 +375,12 @@ class KVMView: NSView {
         // Это гарантированно не занято Mission Control в macOS и на 100% свободно
         if event.modifierFlags.contains(.control) && event.modifierFlags.contains(.shift) {
             if event.keyCode == 126 { // Control + Shift + Стрелка Вверх
+                print("[Swift KVM] Control + Shift + Up pressed. Volume Up.")
                 sendKey("KEYCODE_VOLUME_UP")
                 return
             }
             if event.keyCode == 125 { // Control + Shift + Стрелка Вниз
+                print("[Swift KVM] Control + Shift + Down pressed. Volume Down.")
                 sendKey("KEYCODE_VOLUME_DOWN")
                 return
             }
@@ -385,9 +390,11 @@ class KVMView: NSView {
         if event.keyCode == 51 {
             if event.modifierFlags.contains(.command) || event.modifierFlags.contains(.control) {
                 // Command + Backspace или Control + Backspace — действие "Назад" (KEYCODE_BACK)
+                print("[Swift KVM] Command/Control + Backspace pressed. Sending KEYCODE_BACK.")
                 sendKey("KEYCODE_BACK")
             } else {
                 // Обычный Backspace — стирание текста (KEYCODE_DEL)
+                print("[Swift KVM] Backspace pressed. Sending KEYCODE_DEL.")
                 sendKey("KEYCODE_DEL")
             }
             return
@@ -395,15 +402,16 @@ class KVMView: NSView {
         
         // Enter (код 36) или Numpad Enter (код 76)
         if event.keyCode == 36 || event.keyCode == 76 {
+            print("[Swift KVM] Enter pressed. Sending KEYCODE_ENTER.")
             sendKey("KEYCODE_ENTER")
             return
         }
         
         // Стрелочки клавиатуры для дублирования навигации
-        if event.keyCode == 126 { sendNavKey("KEYCODE_DPAD_UP"); return }
-        if event.keyCode == 125 { sendNavKey("KEYCODE_DPAD_DOWN"); return }
-        if event.keyCode == 123 { sendNavKey("KEYCODE_DPAD_LEFT"); return }
-        if event.keyCode == 124 { sendNavKey("KEYCODE_DPAD_RIGHT"); return }
+        if event.keyCode == 126 { print("[Swift KVM] Up Arrow pressed."); sendNavKey("KEYCODE_DPAD_UP"); return }
+        if event.keyCode == 125 { print("[Swift KVM] Down Arrow pressed."); sendNavKey("KEYCODE_DPAD_DOWN"); return }
+        if event.keyCode == 123 { print("[Swift KVM] Left Arrow pressed."); sendNavKey("KEYCODE_DPAD_LEFT"); return }
+        if event.keyCode == 124 { print("[Swift KVM] Right Arrow pressed."); sendNavKey("KEYCODE_DPAD_RIGHT"); return }
         
         // Обработка текстового набора букв через нативный IME ввод (поддерживает EN/RU)
         if let chars = event.characters, !chars.isEmpty {
@@ -412,6 +420,7 @@ class KVMView: NSView {
                 let scalars = char.unicodeScalars
                 if let first = scalars.first, first.value >= 32 && first.value != 127 {
                     let charStr = String(char)
+                    print("[Swift KVM] Transmitting character: \"\(charStr)\"")
                     if let base64Char = charStr.data(using: .utf8)?.base64EncodedString() {
                         if let delegate = NSApp.delegate as? AppDelegate {
                             delegate.socketClient.send(cmd: "CHAR \(base64Char)")

@@ -38,6 +38,29 @@ class RemoteManager extends _events.default {
 
     return _asyncToGenerator(function* () {
       return new Promise((resolve, reject) => {
+        let finished = false;
+
+        let connectionTimeout = setTimeout(() => {
+          if (!finished) {
+            console.debug("Connection establishment timed out");
+            if (_this.client) {
+              _this.client.destroy();
+            }
+            done(false, new Error("Connection establishment timed out"));
+          }
+        }, 5000);
+
+        const done = (success, val) => {
+          clearTimeout(connectionTimeout);
+          if (finished) return;
+          finished = true;
+          if (success) {
+            resolve(val);
+          } else {
+            reject(val);
+          }
+        };
+
         var options = {
           key: _this.certs.key,
           cert: _this.certs.cert,
@@ -53,6 +76,7 @@ class RemoteManager extends _events.default {
           console.debug('timeout');
 
           _this.client.destroy();
+          done(false, new Error("Connection timed out"));
         }); // Le ping est reçu toutes les 5 secondes
 
 
@@ -60,7 +84,7 @@ class RemoteManager extends _events.default {
 
         _this.client.on("secureConnect", () => {
           console.debug(_this.host + " Remote secureConnect");
-          resolve(true);
+          done(true, true);
         });
 
         _this.client.on('data', data => {
@@ -118,11 +142,13 @@ class RemoteManager extends _events.default {
         _this.client.on('close', (hasError) => {
           console.info(_this.host + " Remote Connection closed ", hasError);
           _this.emit('close', hasError);
+          done(false, new Error("Connection closed"));
         });
 
         _this.client.on('error', error => {
           console.error(_this.host, error);
           _this.error = error;
+          done(false, error);
         });
       });
     })();
