@@ -61,7 +61,7 @@ function handleIncomingImeMessage(message) {
                 
                 // Если экранная клавиатура открылась на ТВ (и HUD на Mac сейчас неактивен),
                 // то автоматически вызываем текстовое окно ввода на Mac.
-                if (!isHudActive && !isEcho) {
+                if (!isHudActive && !isEcho && imeSessionCounter !== lastDismissedSessionCounter) {
                     console.log(`[Bridge] TV keyboard active status detected via KeyInject. Auto-triggering Mac HUD.`);
                     triggerImeShow(currentText);
                 }
@@ -90,7 +90,7 @@ function handleIncomingImeMessage(message) {
             }
         }
         
-        if (!isHudActive) {
+        if (!isHudActive && imeSessionCounter !== lastDismissedSessionCounter) {
             console.log(`[Bridge] Auto-triggering Mac HUD from ShowRequest.`);
             triggerImeShow(currentText);
         }
@@ -139,6 +139,7 @@ let imeSessionCounter = 1; // Tracks appInfo.counter (TV session ID)
 let localFieldCounter = 1; // Tracks textFieldStatus.counterField (TV field edit ID)
 let latestSentFieldCounter = 0; // Tracks the latest field counter sent to TV to avoid stale race conditions
 let isHudActive = false; // Tracks whether the macOS input HUD is currently active
+let lastDismissedSessionCounter = 0; // Tracks the ID of the text session dismissed by the user on Mac
 
 function triggerImeShow(text) {
     if (activeSocket) {
@@ -421,6 +422,7 @@ function handleCommand(cmd) {
         cursorPosition = 0;
         latestSentFieldCounter = 0;
         isHudActive = false;
+        lastDismissedSessionCounter = imeSessionCounter;
         console.log("[Bridge] Local IME text buffer reset (HUD closed).");
     } else if (cmd.startsWith("KEY ")) {
         const keyName = cmd.substring(4).trim();
