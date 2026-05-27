@@ -27,23 +27,49 @@ function handleIncomingImeMessage(message) {
         
         if (ime.appInfo) {
             latestAppInfo = ime.appInfo;
+            if (ime.appInfo.counter !== undefined && ime.appInfo.counter !== null) {
+                if (ime.appInfo.counter !== imeSessionCounter) {
+                    console.log(`[Bridge] New IME session started: ${ime.appInfo.counter} (previous: ${imeSessionCounter})`);
+                    imeSessionCounter = ime.appInfo.counter;
+                    latestSentFieldCounter = 0; // Reset stale transaction filter for new session
+                }
+            }
+            if (ime.appInfo.appPackage) {
+                console.log(`[Bridge] Active app package: ${ime.appInfo.appPackage}`);
+                if (activeSocket) {
+                    activeSocket.write(`APP ${ime.appInfo.appPackage}\n`);
+                }
+                // Автовызов IME_SHOW на Mac при старте текстовой сессии в сторонних приложениях (не лаунчерах)
+                if (!ime.appInfo.appPackage.includes("launcher")) {
+                    console.log(`[Bridge] Auto-triggering IME_SHOW for active app: ${ime.appInfo.appPackage}`);
+                    if (activeSocket) {
+                        const base64Val = Buffer.from(currentText || "").toString('base64');
+                        activeSocket.write(`IME_SHOW ${base64Val}\n`);
+                    }
+                }
+            }
         }
         
         if (ime.textFieldStatus) {
             latestTextFieldStatus = ime.textFieldStatus;
             
-            // Синхронизируем counterField
-            if (ime.textFieldStatus.counterField !== undefined && ime.textFieldStatus.counterField !== null) {
-                imeCounter = ime.textFieldStatus.counterField;
+            const tvFieldCounter = ime.textFieldStatus.counterField;
+            if (tvFieldCounter !== undefined && tvFieldCounter !== null) {
+                if (tvFieldCounter < latestSentFieldCounter) {
+                    console.log(`[Bridge] Ignored stale remoteImeKeyInject status (TV counter: ${tvFieldCounter}, latest sent: ${latestSentFieldCounter})`);
+                } else {
+                    localFieldCounter = tvFieldCounter;
+                    if (ime.textFieldStatus.value !== undefined && ime.textFieldStatus.value !== null) {
+                        currentText = ime.textFieldStatus.value;
+                        cursorPosition = ime.textFieldStatus.start !== undefined ? ime.textFieldStatus.start : currentText.length;
+                    }
+                    console.log(`[Bridge] Sync from TV (KeyInject): "${currentText}", cursorPosition: ${cursorPosition}, counterField: ${localFieldCounter}, sessionCounter: ${imeSessionCounter}`);
+                    if (activeSocket) {
+                        const base64Val = Buffer.from(currentText || "").toString('base64');
+                        activeSocket.write(`IME_SHOW ${base64Val}\n`);
+                    }
+                }
             }
-            
-            // Синхронизируем локальный буфер текста
-            if (ime.textFieldStatus.value !== undefined && ime.textFieldStatus.value !== null) {
-                currentText = ime.textFieldStatus.value;
-                cursorPosition = ime.textFieldStatus.start !== undefined ? ime.textFieldStatus.start : currentText.length;
-            }
-            
-            console.log(`[Bridge] Sync from TV (KeyInject): "${currentText}", cursorPosition: ${cursorPosition}, counterField: ${imeCounter}`);
         }
     }
 
@@ -52,25 +78,29 @@ function handleIncomingImeMessage(message) {
         if (status) {
             latestTextFieldStatus = status;
             
-            if (status.counterField !== undefined && status.counterField !== null) {
-                imeCounter = status.counterField;
+            const tvFieldCounter = status.counterField;
+            if (tvFieldCounter !== undefined && tvFieldCounter !== null) {
+                if (tvFieldCounter < latestSentFieldCounter) {
+                    console.log(`[Bridge] Ignored stale remoteImeShowRequest status (TV counter: ${tvFieldCounter}, latest sent: ${latestSentFieldCounter})`);
+                } else {
+                    localFieldCounter = tvFieldCounter;
+                    if (status.value !== undefined && status.value !== null) {
+                        currentText = status.value;
+                        cursorPosition = status.start !== undefined ? status.start : currentText.length;
+                    }
+                    console.log(`[Bridge] Sync from TV (ShowRequest): "${currentText}", cursorPosition: ${cursorPosition}, counterField: ${localFieldCounter}, sessionCounter: ${imeSessionCounter}`);
+                    if (activeSocket) {
+                        const base64Val = Buffer.from(currentText || "").toString('base64');
+                        activeSocket.write(`IME_SHOW ${base64Val}\n`);
+                    }
+                }
             }
-            
-            if (status.value !== undefined && status.value !== null) {
-                currentText = status.value;
-                cursorPosition = status.start !== undefined ? status.start : currentText.length;
-            }
-            
-            console.log(`[Bridge] Sync from TV (ShowRequest): "${currentText}", cursorPosition: ${cursorPosition}, counterField: ${imeCounter}`);
         }
     }
 
     if (message.remoteImeBatchEdit) {
         const batch = message.remoteImeBatchEdit;
-        if (batch.imeCounter !== undefined && batch.imeCounter !== null) {
-            imeCounter = batch.imeCounter;
-            console.log(`[Bridge] Sync from TV (BatchEdit): imeCounter updated to ${imeCounter}`);
-        }
+        console.log(`[Bridge] TV emitted BatchEdit (ignored counters): imeCounter=${batch.imeCounter}, fieldCounter=${batch.fieldCounter}`);
     }
 }
 
@@ -107,7 +137,9 @@ let activeSocket = null;
 
 let currentText = "";
 let cursorPosition = 0;
-let imeCounter = 1;
+let imeSessionCounter = 1; // Tracks appInfo.counter (TV session ID)
+let localFieldCounter = 1; // Tracks textFieldStatus.counterField (TV field edit ID)
+let latestSentFieldCounter = 0; // Tracks the latest field counter sent to TV to avoid stale race conditions
 
 function sendImeText(text) {
     if (status !== "READY" || !androidRemote.remoteManager || !androidRemote.remoteManager.client) {
@@ -115,32 +147,46 @@ function sendImeText(text) {
         return;
     }
     
-    // Инкрементируем счетчик пакетов для ТВ
-    imeCounter++;
+    // Использовать точные счетчики от ТВ
+    let fieldCounter = localFieldCounter;
+    let currentSession = imeSessionCounter;
     
-    const fieldCounter = latestTextFieldStatus ? latestTextFieldStatus.counterField : 1;
+    // Длина предыдущего текста, который мы хотим полностью заменить
+    let oldTextLength = currentText.length;
+    
+    // Сразу локально обновляем буфер
+    currentText = text;
+    cursorPosition = text.length;
+    
+    // Сохраняем отправленный индекс транзакции во избежание гонки состояний
+    latestSentFieldCounter = fieldCounter;
+    
+    // Инкрементируем localFieldCounter локально, так как мы отправляем новый эдит,
+    // который изменит состояние на стороне ТВ.
+    localFieldCounter++;
     
     try {
-        const payload = {
+        // Формируем чистый пакет RemoteImeBatchEdit по спецификации V2
+        const batchPayload = {
             remoteImeBatchEdit: {
-                imeCounter: imeCounter,
+                imeCounter: currentSession,
                 fieldCounter: fieldCounter,
                 editInfo: [{
-                    insert: 1,
+                    insert: 0,
                     textFieldStatus: {
-                        start: cursorPosition,
-                        end: cursorPosition,
+                        start: 0,
+                        end: oldTextLength,
                         value: text
                     }
                 }]
             }
         };
-        const packet = remoteMessageManager.create(payload);
+        const batchPacket = remoteMessageManager.create(batchPayload);
+        androidRemote.remoteManager.client.write(batchPacket);
         
-        androidRemote.remoteManager.client.write(packet);
-        console.log(`[Bridge] Injected IME Batch Edit text: "${text}", cursor: ${cursorPosition}, fieldCounter: ${fieldCounter}, imeCounter: ${imeCounter}`);
+        console.log(`[Bridge] Injected BatchEdit for text: "${text}" (replaced 0..${oldTextLength}), imeCounter: ${currentSession}, fieldCounter: ${fieldCounter}`);
     } catch (e) {
-        console.error("[Bridge] Failed to send IME Batch Edit packet:", e.message);
+        console.error("[Bridge] Failed to send IME packets:", e.message);
     }
 }
 
@@ -203,9 +249,38 @@ androidRemote.on('ready', () => {
 });
 
 let reconnectTimeout = null;
+let disconnectsHistory = [];
+
+function recordDisconnect() {
+    const now = Date.now();
+    disconnectsHistory.push(now);
+    // Оставляем только дисконнекты за последние 20 секунд
+    disconnectsHistory = disconnectsHistory.filter(t => now - t < 20000);
+    
+    if (disconnectsHistory.length >= 3) {
+        console.warn("[Bridge] Connection conflict detected! 3 disconnects in 20 seconds.");
+        status = "DISCONNECTED";
+        sendStatus("CONFLICT");
+        
+        if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+            reconnectTimeout = null;
+        }
+        try {
+            androidRemote.stop();
+        } catch(e) {}
+        return true; // Конфликт обнаружен
+    }
+    return false;
+}
 
 function reconnectTV() {
     if (status === "DISCONNECTED") {
+        return;
+    }
+    
+    // Проверяем конфликт перед попыткой реконнекта
+    if (recordDisconnect()) {
         return;
     }
     
@@ -225,6 +300,8 @@ function reconnectTV() {
         console.log("[Bridge] Reconnecting to Android TV...");
         androidRemote.start().then(() => {
             console.log("[Bridge] New start() call successfully resolved connection!");
+            // При успешном соединении сбрасываем историю дисконнектов
+            disconnectsHistory = [];
         }).catch((err) => {
             console.error("[Bridge] Reconnect start() failed:", err.message || err);
             reconnectTV();
@@ -289,29 +366,41 @@ function handleCommand(cmd) {
         const pin = cmd.substring(4).trim();
         console.log("[Bridge] Injecting pairing PIN code:", pin);
         androidRemote.sendCode(pin);
+    } else if (cmd.startsWith("SET_TEXT")) {
+        const base64Text = cmd.substring(8).trim();
+        if (base64Text === "") {
+            console.log("[Bridge] Local IME text buffer cleared (empty SET_TEXT).");
+            sendImeText("");
+        } else {
+            try {
+                const text = Buffer.from(base64Text, 'base64').toString('utf8');
+                sendImeText(text);
+            } catch (e) {
+                console.error("[Bridge] Failed to decode Base64 SET_TEXT:", e.message);
+            }
+        }
     } else if (cmd.startsWith("CHAR ")) {
         const base64Char = cmd.substring(5).trim();
         try {
             const char = Buffer.from(base64Char, 'base64').toString('utf8');
             // Вставляем символ в позицию курсора
-            currentText = currentText.slice(0, cursorPosition) + char + currentText.slice(cursorPosition);
-            cursorPosition += char.length;
-            sendImeText(currentText);
+            const newText = currentText.slice(0, cursorPosition) + char + currentText.slice(cursorPosition);
+            sendImeText(newText);
         } catch (e) {
             console.error("[Bridge] Failed to decode Base64 CHAR:", e.message);
         }
     } else if (cmd === "RESET") {
         currentText = "";
         cursorPosition = 0;
+        latestSentFieldCounter = 0;
         console.log("[Bridge] Local IME text buffer reset.");
     } else if (cmd.startsWith("KEY ")) {
         const keyName = cmd.substring(4).trim();
         
         if (keyName === "KEYCODE_DEL") {
             if (cursorPosition > 0) {
-                currentText = currentText.slice(0, cursorPosition - 1) + currentText.slice(cursorPosition);
-                cursorPosition--;
-                sendImeText(currentText);
+                const newText = currentText.slice(0, cursorPosition - 1) + currentText.slice(cursorPosition);
+                sendImeText(newText);
             } else {
                 // Если буфер пуст, на всякий случай пересылаем DEL на ТВ
                 sendKeyDirect(keyName);
