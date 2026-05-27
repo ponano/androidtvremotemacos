@@ -23,6 +23,24 @@ function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) { try
 
 function _asyncToGenerator(fn) { return function () { var self = this, args = arguments; return new Promise(function (resolve, reject) { var gen = fn.apply(self, args); function _next(value) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value); } function _throw(err) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err); } _next(undefined); }); }; }
 
+function readVarint(buffer, offset) {
+  let value = 0;
+  let shift = 0;
+  let idx = offset;
+  while (idx < buffer.length) {
+    const byte = buffer.readUInt8(idx++);
+    value |= (byte & 0x7F) << shift;
+    if ((byte & 0x80) === 0) {
+      return { value: value, length: idx - offset };
+    }
+    shift += 7;
+    if (shift >= 32) {
+      throw new Error("Varint too long");
+    }
+  }
+  return null;
+}
+
 class RemoteManager extends _events.default {
   constructor(host, port, certs) {
     super();
@@ -91,51 +109,79 @@ class RemoteManager extends _events.default {
           var buffer = Buffer.from(data);
           _this.chunks = Buffer.concat([_this.chunks, buffer]);
 
-          if (_this.chunks.length > 0 && _this.chunks.readInt8(0) === _this.chunks.length - 1) {
-            var message = _RemoteMessageManager.remoteMessageManager.parse(_this.chunks);
-
-            if (!message.remotePingRequest) {
-              //console.debug(this.host + " Receive : " + Array.from(this.chunks));
-              console.debug(_this.host + " Receive : " + JSON.stringify(message.toJSON()));
+          while (_this.chunks.length > 0) {
+            let varint = null;
+            try {
+              varint = readVarint(_this.chunks, 0);
+            } catch (e) {
+              console.error("Failed to read varint:", e.message);
+              _this.chunks = Buffer.from([]);
+              break;
             }
 
-            if (message.remoteConfigure) {
-              _this.client.write(_RemoteMessageManager.remoteMessageManager.createRemoteConfigure(622, "Build.MODEL", "Build.MANUFACTURER", 1, "Build.VERSION.RELEASE"));
-
-              _this.emit('ready');
-            } else if (message.remoteSetActive) {
-              _this.client.write(_RemoteMessageManager.remoteMessageManager.createRemoteSetActive(622));
-            } else if (message.remotePingRequest) {
-              _this.client.write(_RemoteMessageManager.remoteMessageManager.createRemotePingResponse(message.remotePingRequest.val1));
-            } else if (message.remoteImeKeyInject) {
-              _this.emit('current_app', message.remoteImeKeyInject.appInfo.appPackage);
-            } else if (message.remoteImeBatchEdit) {
-              console.debug("Receive IME BATCH EDIT" + message.remoteImeBatchEdit);
-            } else if (message.remoteImeShowRequest) {
-              console.debug("Receive IME SHOW REQUEST" + message.remoteImeShowRequest);
-            } else if (message.remoteVoiceBegin) {//console.debug("Receive VOICE BEGIN" + message.remoteVoiceBegin);
-            } else if (message.remoteVoicePayload) {//console.debug("Receive VOICE PAYLOAD" + message.remoteVoicePayload);
-            } else if (message.remoteVoiceEnd) {//console.debug("Receive VOICE END" + message.remoteVoiceEnd);
-            } else if (message.remoteStart) {
-              _this.emit('powered', message.remoteStart.started);
-            } else if (message.remoteSetVolumeLevel) {
-              _this.emit('volume', {
-                level: message.remoteSetVolumeLevel.volumeLevel,
-                maximum: message.remoteSetVolumeLevel.volumeMax,
-                muted: message.remoteSetVolumeLevel.volumeMuted
-              }); //console.debug("Receive SET VOLUME LEVEL" + message.remoteSetVolumeLevel.toJSON().toString());
-
-            } else if (message.remoteSetPreferredAudioDevice) {//console.debug("Receive SET PREFERRED AUDIO DEVICE" + message.remoteSetPreferredAudioDevice);
-            } else if (message.remoteError) {
-              //console.debug("Receive REMOTE ERROR");
-              _this.emit('error', {
-                error: message.remoteError
-              });
-            } else {
-              console.log("What else ?");
+            if (!varint) {
+              // Incomplete varint prefix, wait for more data
+              break;
             }
 
-            _this.chunks = Buffer.from([]);
+            const headerLength = varint.length;
+            const messageLength = varint.value;
+            const totalLength = headerLength + messageLength;
+
+            if (_this.chunks.length < totalLength) {
+              // Incomplete message, wait for more data
+              break;
+            }
+
+            // Extract the complete delimited packet
+            const packet = _this.chunks.slice(0, totalLength);
+            _this.chunks = _this.chunks.slice(totalLength);
+
+            try {
+              var message = _RemoteMessageManager.remoteMessageManager.parse(packet);
+
+              if (!message.remotePingRequest) {
+                console.debug(_this.host + " Receive : " + JSON.stringify(message.toJSON()));
+              }
+
+              if (message.remoteConfigure) {
+                _this.client.write(_RemoteMessageManager.remoteMessageManager.createRemoteConfigure(622, "Build.MODEL", "Build.MANUFACTURER", 1, "Build.VERSION.RELEASE"));
+
+                _this.emit('ready');
+              } else if (message.remoteSetActive) {
+                _this.client.write(_RemoteMessageManager.remoteMessageManager.createRemoteSetActive(622));
+              } else if (message.remotePingRequest) {
+                _this.client.write(_RemoteMessageManager.remoteMessageManager.createRemotePingResponse(message.remotePingRequest.val1));
+              } else if (message.remoteImeKeyInject) {
+                _this.emit('current_app', message.remoteImeKeyInject.appInfo.appPackage);
+              } else if (message.remoteImeBatchEdit) {
+                console.debug("Receive IME BATCH EDIT" + message.remoteImeBatchEdit);
+              } else if (message.remoteImeShowRequest) {
+                console.debug("Receive IME SHOW REQUEST" + message.remoteImeShowRequest);
+              } else if (message.remoteVoiceBegin) {//console.debug("Receive VOICE BEGIN" + message.remoteVoiceBegin);
+              } else if (message.remoteVoicePayload) {//console.debug("Receive VOICE PAYLOAD" + message.remoteVoicePayload);
+              } else if (message.remoteVoiceEnd) {//console.debug("Receive VOICE END" + message.remoteVoiceEnd);
+              } else if (message.remoteStart) {
+                _this.emit('powered', message.remoteStart.started);
+              } else if (message.remoteSetVolumeLevel) {
+                _this.emit('volume', {
+                  level: message.remoteSetVolumeLevel.volumeLevel,
+                  maximum: message.remoteSetVolumeLevel.volumeMax,
+                  muted: message.remoteSetVolumeLevel.volumeMuted
+                }); //console.debug("Receive SET VOLUME LEVEL" + message.remoteSetVolumeLevel.toJSON().toString());
+
+              } else if (message.remoteSetPreferredAudioDevice) {//console.debug("Receive SET PREFERRED AUDIO DEVICE" + message.remoteSetPreferredAudioDevice);
+              } else if (message.remoteError) {
+                //console.debug("Receive REMOTE ERROR");
+                _this.emit('error', {
+                  error: message.remoteError
+                });
+              } else {
+                console.log("What else ?");
+              }
+            } catch (err) {
+              console.error("Failed to parse remote message:", err.message);
+            }
           }
         });
 

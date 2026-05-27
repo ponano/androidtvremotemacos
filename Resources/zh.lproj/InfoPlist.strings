@@ -1,0 +1,3 @@
+/* InfoPlist.strings (Chinese Simplified) */
+NSMicrophoneUsageDescription = "电视语音文本输入需要麦克风访问权限。";
+NSSpeechRecognitionUsageDescription = "语音识别需要将您的声音转换为文本。";

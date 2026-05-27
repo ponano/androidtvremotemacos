@@ -39,14 +39,6 @@ function handleIncomingImeMessage(message) {
                 if (activeSocket) {
                     activeSocket.write(`APP ${ime.appInfo.appPackage}\n`);
                 }
-                // Автовызов IME_SHOW на Mac при старте текстовой сессии в сторонних приложениях (не лаунчерах)
-                if (!ime.appInfo.appPackage.includes("launcher")) {
-                    console.log(`[Bridge] Auto-triggering IME_SHOW for active app: ${ime.appInfo.appPackage}`);
-                    if (activeSocket) {
-                        const base64Val = Buffer.from(currentText || "").toString('base64');
-                        activeSocket.write(`IME_SHOW ${base64Val}\n`);
-                    }
-                }
             }
         }
         
@@ -56,24 +48,29 @@ function handleIncomingImeMessage(message) {
             const tvFieldCounter = ime.textFieldStatus.counterField;
             if (tvFieldCounter !== undefined && tvFieldCounter !== null) {
                 if (tvFieldCounter < latestSentFieldCounter) {
-                    console.log(`[Bridge] Ignored stale remoteImeKeyInject status (TV counter: ${tvFieldCounter}, latest sent: ${latestSentFieldCounter})`);
-                } else {
-                    localFieldCounter = tvFieldCounter;
-                    if (ime.textFieldStatus.value !== undefined && ime.textFieldStatus.value !== null) {
-                        currentText = ime.textFieldStatus.value;
-                        cursorPosition = ime.textFieldStatus.start !== undefined ? ime.textFieldStatus.start : currentText.length;
-                    }
-                    console.log(`[Bridge] Sync from TV (KeyInject): "${currentText}", cursorPosition: ${cursorPosition}, counterField: ${localFieldCounter}, sessionCounter: ${imeSessionCounter}`);
-                    if (activeSocket) {
-                        const base64Val = Buffer.from(currentText || "").toString('base64');
-                        activeSocket.write(`IME_SHOW ${base64Val}\n`);
-                    }
+                    console.log(`[Bridge] TV counter decreased in KeyInject (${tvFieldCounter} < ${latestSentFieldCounter}). Resetting stale transaction filter.`);
+                    latestSentFieldCounter = 0;
+                }
+                const isEcho = (tvFieldCounter === latestSentFieldCounter && latestSentFieldCounter > 0);
+                localFieldCounter = tvFieldCounter;
+                if (ime.textFieldStatus.value !== undefined && ime.textFieldStatus.value !== null) {
+                    currentText = ime.textFieldStatus.value;
+                    cursorPosition = ime.textFieldStatus.start !== undefined ? ime.textFieldStatus.start : currentText.length;
+                }
+                console.log(`[Bridge] Sync from TV (KeyInject): "${currentText}", cursorPosition: ${cursorPosition}, counterField: ${localFieldCounter}, sessionCounter: ${imeSessionCounter}`);
+                
+                // Если экранная клавиатура открылась на ТВ (и HUD на Mac сейчас неактивен),
+                // то автоматически вызываем текстовое окно ввода на Mac.
+                if (!isHudActive && !isEcho) {
+                    console.log(`[Bridge] TV keyboard active status detected via KeyInject. Auto-triggering Mac HUD.`);
+                    triggerImeShow(currentText);
                 }
             }
         }
     }
 
     if (message.remoteImeShowRequest) {
+        console.log(`[Bridge] TV explicitly requested IME show (remoteImeShowRequest received).`);
         const status = message.remoteImeShowRequest.remoteTextFieldStatus;
         if (status) {
             latestTextFieldStatus = status;
@@ -81,20 +78,21 @@ function handleIncomingImeMessage(message) {
             const tvFieldCounter = status.counterField;
             if (tvFieldCounter !== undefined && tvFieldCounter !== null) {
                 if (tvFieldCounter < latestSentFieldCounter) {
-                    console.log(`[Bridge] Ignored stale remoteImeShowRequest status (TV counter: ${tvFieldCounter}, latest sent: ${latestSentFieldCounter})`);
-                } else {
-                    localFieldCounter = tvFieldCounter;
-                    if (status.value !== undefined && status.value !== null) {
-                        currentText = status.value;
-                        cursorPosition = status.start !== undefined ? status.start : currentText.length;
-                    }
-                    console.log(`[Bridge] Sync from TV (ShowRequest): "${currentText}", cursorPosition: ${cursorPosition}, counterField: ${localFieldCounter}, sessionCounter: ${imeSessionCounter}`);
-                    if (activeSocket) {
-                        const base64Val = Buffer.from(currentText || "").toString('base64');
-                        activeSocket.write(`IME_SHOW ${base64Val}\n`);
-                    }
+                    console.log(`[Bridge] TV counter decreased in ShowRequest (${tvFieldCounter} < ${latestSentFieldCounter}). Resetting stale transaction filter.`);
+                    latestSentFieldCounter = 0;
                 }
+                localFieldCounter = tvFieldCounter;
+                if (status.value !== undefined && status.value !== null) {
+                    currentText = status.value;
+                    cursorPosition = status.start !== undefined ? status.start : currentText.length;
+                }
+                console.log(`[Bridge] Sync from TV (ShowRequest): "${currentText}", cursorPosition: ${cursorPosition}, counterField: ${localFieldCounter}, sessionCounter: ${imeSessionCounter}`);
             }
+        }
+        
+        if (!isHudActive) {
+            console.log(`[Bridge] Auto-triggering Mac HUD from ShowRequest.`);
+            triggerImeShow(currentText);
         }
     }
 
@@ -140,6 +138,15 @@ let cursorPosition = 0;
 let imeSessionCounter = 1; // Tracks appInfo.counter (TV session ID)
 let localFieldCounter = 1; // Tracks textFieldStatus.counterField (TV field edit ID)
 let latestSentFieldCounter = 0; // Tracks the latest field counter sent to TV to avoid stale race conditions
+let isHudActive = false; // Tracks whether the macOS input HUD is currently active
+
+function triggerImeShow(text) {
+    if (activeSocket) {
+        const base64Val = Buffer.from(text || "").toString('base64');
+        activeSocket.write(`IME_SHOW ${base64Val}\n`);
+        isHudActive = true;
+    }
+}
 
 function sendImeText(text) {
     if (status !== "READY" || !androidRemote.remoteManager || !androidRemote.remoteManager.client) {
@@ -166,7 +173,7 @@ function sendImeText(text) {
     localFieldCounter++;
     
     try {
-        // Формируем чистый пакет RemoteImeBatchEdit по спецификации V2
+        // 1. Формируем чистый пакет RemoteImeBatchEdit по спецификации V2 (для нативных приложений)
         const batchPayload = {
             remoteImeBatchEdit: {
                 imeCounter: currentSession,
@@ -184,7 +191,26 @@ function sendImeText(text) {
         const batchPacket = remoteMessageManager.create(batchPayload);
         androidRemote.remoteManager.client.write(batchPacket);
         
-        console.log(`[Bridge] Injected BatchEdit for text: "${text}" (replaced 0..${oldTextLength}), imeCounter: ${currentSession}, fieldCounter: ${fieldCounter}`);
+        // 2. Формируем и отправляем пакет RemoteImeKeyInject (для WebView и браузеров, таких как BrowseHere)
+        const activeApp = (latestAppInfo && latestAppInfo.appPackage) ? latestAppInfo.appPackage : "com.tcl.browser";
+        const keyInjectPayload = {
+            remoteImeKeyInject: {
+                appInfo: {
+                    appPackage: activeApp,
+                    counter: currentSession
+                },
+                textFieldStatus: {
+                    counterField: fieldCounter,
+                    value: text,
+                    start: text.length,
+                    end: text.length
+                }
+            }
+        };
+        const keyInjectPacket = remoteMessageManager.create(keyInjectPayload);
+        androidRemote.remoteManager.client.write(keyInjectPacket);
+        
+        console.log(`[Bridge] Injected BOTH BatchEdit and KeyInject for text: "${text}" (imeCounter: ${currentSession}, fieldCounter: ${fieldCounter})`);
     } catch (e) {
         console.error("[Bridge] Failed to send IME packets:", e.message);
     }
@@ -350,6 +376,7 @@ const server = net.createServer((socket) => {
         console.log("[Bridge] macOS Swift client disconnected.");
         if (activeSocket === socket) {
             activeSocket = null;
+            isHudActive = false;
         }
     });
 
@@ -393,7 +420,8 @@ function handleCommand(cmd) {
         currentText = "";
         cursorPosition = 0;
         latestSentFieldCounter = 0;
-        console.log("[Bridge] Local IME text buffer reset.");
+        isHudActive = false;
+        console.log("[Bridge] Local IME text buffer reset (HUD closed).");
     } else if (cmd.startsWith("KEY ")) {
         const keyName = cmd.substring(4).trim();
         

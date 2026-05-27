@@ -22,7 +22,9 @@ echo "===================================================="
 echo " 🛠️ Создание структуры macOS App Bundle..."
 echo "===================================================="
 mkdir -p tv_kvm.app/Contents/MacOS
+mkdir -p tv_kvm.app/Contents/Resources
 cp -f Info.plist tv_kvm.app/Contents/Info.plist
+cp -rf Resources/* tv_kvm.app/Contents/Resources/
 
 echo "===================================================="
 echo " 🛠️ Компиляция нативного KVM-моста на Swift..."

@@ -10,9 +10,383 @@ import AVFoundation
 let INITIAL_ZONE_WIDTH = 8.0
 // ==========================================
 
-// Класс для живого распознавания речи с микрофона Mac на русский/английский языки
+// Класс динамической локализации на 6 языков (автоматическое определение при запуске)
+struct Localization {
+    static var currentLanguage: String {
+        get {
+            if let saved = UserDefaults.standard.string(forKey: "KVM_Language") {
+                return saved
+            }
+            let pref = Locale.preferredLanguages.first?.prefix(2).lowercased() ?? "en"
+            let supported = ["ru", "en", "fr", "it", "de", "es", "zh"]
+            return supported.contains(pref) ? pref : "en"
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "KVM_Language")
+        }
+    }
+    
+    static func get(_ key: String) -> String {
+        guard let translations = strings[key] else { return key }
+        return translations[currentLanguage] ?? translations["en"] ?? key
+    }
+    
+    private static let strings: [String: [String: String]] = [
+        "language": [
+            "ru": "Язык интерфейса",
+            "en": "Interface Language",
+            "fr": "Langue de l'interface",
+            "it": "Lingua dell'interfaccia",
+            "de": "Oberflächensprache",
+            "es": "Idioma de la interfaz",
+            "zh": "界面语言"
+        ],
+        "kvm_connected": [
+            "ru": "🟢 KVM: Подключен",
+            "en": "🟢 KVM: Connected",
+            "fr": "🟢 KVM: Connecté",
+            "it": "🟢 KVM: Connesso",
+            "de": "🟢 KVM: Verbunden",
+            "es": "🟢 KVM: Conectado",
+            "zh": "🟢 KVM: 已连接"
+        ],
+        "kvm_enter_pin": [
+            "ru": "🟡 KVM: Введите PIN",
+            "en": "🟡 KVM: Enter PIN",
+            "fr": "🟡 KVM: Saisir le code PIN",
+            "it": "🟡 KVM: Inserisci PIN",
+            "de": "🟡 KVM: PIN eingeben",
+            "es": "🟡 KVM: Introducir PIN",
+            "zh": "🟡 KVM: 输入 PIN 码"
+        ],
+        "kvm_connecting": [
+            "ru": "🟡 KVM: Подключение...",
+            "en": "🟡 KVM: Connecting...",
+            "fr": "🟡 KVM: Connexion...",
+            "it": "🟡 KVM: Connessione...",
+            "de": "🟡 KVM: Verbinden...",
+            "es": "🟡 KVM: Conectando...",
+            "zh": "🟡 KVM: 正在连接..."
+        ],
+        "kvm_disconnected": [
+            "ru": "🔴 KVM: Отключен",
+            "en": "🔴 KVM: Disconnected",
+            "fr": "🔴 KVM: Déconnecté",
+            "it": "🔴 KVM: Disconnesso",
+            "de": "🔴 KVM: Trennen",
+            "es": "🔴 KVM: Desconectado",
+            "zh": "🔴 KVM: 已断开"
+        ],
+        "disconnect_tv": [
+            "ru": "Отключить от ТВ",
+            "en": "Disconnect from TV",
+            "fr": "Se connecter à la TV",
+            "it": "Disconnetti dalla TV",
+            "de": "Von TV trennen",
+            "es": "Desconectar de la TV",
+            "zh": "断开电视连接"
+        ],
+        "type_text_tv": [
+            "ru": "📝 Ввести текст на ТВ (Ctrl+Shift+T)",
+            "en": "📝 Type text on TV (Ctrl+Shift+T)",
+            "fr": "📝 Saisir du texte sur la TV (Ctrl+Shift+T)",
+            "it": "📝 Scrivi testo sulla TV (Ctrl+Shift+T)",
+            "de": "📝 Text auf TV eingeben (Ctrl+Shift+T)",
+            "es": "📝 Escribir texto en la TV (Ctrl+Shift+T)",
+            "zh": "📝 在电视上输入文本 (Ctrl+Shift+T)"
+        ],
+        "forget_tv": [
+            "ru": "Разорвать сопряжение (Забыть ТВ)",
+            "en": "Forget TV (Unpair)",
+            "fr": "Oublier la TV (Dissocier)",
+            "it": "Dimentica TV (Disassocia)",
+            "de": "TV vergessen (Entkoppeln)",
+            "es": "Olvidar TV (Desvincular)",
+            "zh": "取消配对 (忘记此电视)"
+        ],
+        "cancel_pairing": [
+            "ru": "Отменить сопряжение",
+            "en": "Cancel Pairing",
+            "fr": "Annuler l'association",
+            "it": "Annulla associazione",
+            "de": "Kopplung abbrechen",
+            "es": "Cancelar vinculación",
+            "zh": "取消配对"
+        ],
+        "cancel_connection": [
+            "ru": "Отменить подключение",
+            "en": "Cancel Connection",
+            "fr": "Annuler la connexion",
+            "it": "Annulla connessione",
+            "de": "Verbindung abbrechen",
+            "es": "Cancelar conexión",
+            "zh": "取消连接"
+        ],
+        "connect_tv": [
+            "ru": "Подключить к ТВ",
+            "en": "Connect to TV",
+            "fr": "Se connecter à la TV",
+            "it": "Connetti alla TV",
+            "de": "Mit TV verbinden",
+            "es": "Conectar a la TV",
+            "zh": "连接到电视"
+        ],
+        "start_pairing": [
+            "ru": "Запустить сопряжение (Pairing)",
+            "en": "Start Pairing",
+            "fr": "Démarrer l'association",
+            "it": "Avvia associazione",
+            "de": "Kopplung starten",
+            "es": "Iniciar vinculación",
+            "zh": "开始配对"
+        ],
+        "tv_entry_edge": [
+            "ru": "Сторона перехода на ТВ",
+            "en": "TV Entry Edge",
+            "fr": "Bord de transition vers la TV",
+            "it": "Bordo di transizione alla TV",
+            "de": "TV-Übergangskante",
+            "es": "Borde de transición a la TV",
+            "zh": "电视切换边缘"
+        ],
+        "edge_right": [
+            "ru": "👉 Справа (по умолчанию)",
+            "en": "👉 Right (Default)",
+            "fr": "👉 Droite (Par défaut)",
+            "it": "👉 Destra (Predefinito)",
+            "de": "👉 Rechts (Standard)",
+            "es": "👉 Derecha (Por defecto)",
+            "zh": "👉 右侧 (默认)"
+        ],
+        "edge_left": [
+            "ru": "👈 Слева",
+            "en": "👈 Left",
+            "fr": "👈 Gauche",
+            "it": "👈 Sinistra",
+            "de": "👈 Links",
+            "es": "👈 Izquierda",
+            "zh": "👈 左侧"
+        ],
+        "edge_top": [
+            "ru": "👆 Сверху",
+            "en": "👆 Top",
+            "fr": "👆 Haut",
+            "it": "👆 Sopra",
+            "de": "👆 Oben",
+            "es": "👆 Arriba",
+            "zh": "👆 顶部"
+        ],
+        "scroll_sensitivity": [
+            "ru": "Чувствительность прокрутки",
+            "en": "Scrolling Sensitivity",
+            "fr": "Sensibilité du défilement",
+            "it": "Sensibilità di scorrimento",
+            "de": "Scroll-Empfindlichkeit",
+            "es": "Sensibilidad de desplazamiento",
+            "zh": "滚动敏感度"
+        ],
+        "swipe_sensitivity": [
+            "ru": "Чувствительность свайпов",
+            "en": "Swipe Sensitivity",
+            "fr": "Sensibilité des balayages",
+            "it": "Sensibilità di scorrimento veloce",
+            "de": "Swipe-Empfindlichkeit",
+            "es": "Sensibilidad de gestos deslizar",
+            "zh": "轻扫敏感度"
+        ],
+        "sens_very_fast": [
+            "ru": "Очень быстрая (чувствительная)",
+            "en": "Very Fast (Sensitive)",
+            "fr": "Très rapide (Sensible)",
+            "it": "Molto veloce (Sensibile)",
+            "de": "Sehr schnell (Empfindlich)",
+            "es": "Muy rápida (Sensible)",
+            "zh": "极快 (高灵敏)"
+        ],
+        "sens_fast": [
+            "ru": "Быстрая",
+            "en": "Fast",
+            "fr": "Rapide",
+            "it": "Veloce",
+            "de": "Schnell",
+            "es": "Rápida",
+            "zh": "快速"
+        ],
+        "sens_medium": [
+            "ru": "Средняя (по умолчанию)",
+            "en": "Medium (Default)",
+            "fr": "Moyenne (Par défaut)",
+            "it": "Media (Predefinito)",
+            "de": "Mittel (Standard)",
+            "es": "Media (Por defecto)",
+            "zh": "中等 (默认)"
+        ],
+        "sens_slow": [
+            "ru": "Плавная / Медленная",
+            "en": "Slow / Gentle",
+            "fr": "Lente / Fluide",
+            "it": "Lenta / Fluida",
+            "de": "Langsam / Sanft",
+            "es": "Lenta / Fluida",
+            "zh": "平滑 / 慢速"
+        ],
+        "sens_very_slow": [
+            "ru": "Очень медленная",
+            "en": "Very Slow",
+            "fr": "Très lente",
+            "it": "Molto lenta",
+            "de": "Sehr langsam",
+            "es": "Muy lenta",
+            "zh": "极慢"
+        ],
+        "exit_kvm": [
+            "ru": "Выйти из KVM",
+            "en": "Exit KVM",
+            "fr": "Quitter KVM",
+            "it": "Esci da KVM",
+            "de": "KVM beenden",
+            "es": "Salir de KVM",
+            "zh": "退出 KVM"
+        ],
+        "conflict_title": [
+            "ru": "Конфликт подключений",
+            "en": "Connection Conflict",
+            "fr": "Conflit de connexion",
+            "it": "Conflitto di connessione",
+            "de": "Verbindungskonflikt",
+            "es": "Conflicto de conexión",
+            "zh": "连接冲突"
+        ],
+        "conflict_text": [
+            "ru": "Управление телевизором было перехвачено другим устройством (например, приложением Google TV на телефоне).\n\nАвтоматическое переподключение приостановлено во избежание конфликтов. Вы можете подключиться заново вручную через меню KVM после отключения другого пульта.",
+            "en": "TV control was intercepted by another device (e.g., Google TV app on your phone).\n\nAuto-reconnect is suspended to avoid conflicts. You can manually reconnect via the KVM menu after disconnecting the other remote.",
+            "fr": "Le contrôle de la TV a été intercepté par un autre appareil (ex. l'application Google TV sur le téléphone).\n\nLa reconnexion automatique est suspendue pour éviter les conflits. Vous pouvez vous reconnecter manuellement via le menu KVM après avoir déconnecté l'autre télécommande.",
+            "it": "Il controllo della TV è stato intercettato da un altro dispositivo (es. app Google TV sul telefono).\n\nLa riconnessione automatica è sospesa per evitare conflitti. Puoi riconnetterti manualmente tramite il menu KVM dopo aver disconnesso l'altro telecomando.",
+            "de": "Die TV-Steuerung wurde von einem anderen Gerät abgefangen (z. B. der Google TV-App auf Ihrem Telefon).\n\nDie automatische Wiederverbindung wurde vorübergehend ausgesetzt, um Konflikte zu vermeiden. Sie können nach dem Trennen der anderen Fernbedienung manuell eine neue Verbindung über das KVM-Menü herstellen.",
+            "es": "El control de la TV fue interceptado por otro dispositivo (ej. la aplicación Google TV en el teléfono).\n\nLa reconexión automática se suspende para evitar conflictos. Puede volver a conectarse manualmente a través del menú KVM después de desconectar el otro mando.",
+            "zh": "电视控制权已被其他设备抢占 (例如手机上的 Google TV 应用)。\n\n为避免冲突，已暂停自动重新连接。您可以在断开其他遥控器后，通过 KVM 菜单手动重新连接。"
+        ],
+        "unpair_title": [
+            "ru": "Разорвать сопряжение?",
+            "en": "Unpair TV?",
+            "fr": "Dissocier la TV?",
+            "it": "Disassociare la TV?",
+            "de": "TV entkoppeln?",
+            "es": "¿Desvincular la TV?",
+            "zh": "取消配对？"
+        ],
+        "unpair_text": [
+            "ru": "Вы уверены, что хотите разорвать сопряжение с текущим телевизором и удалить сохраненные сертификаты?",
+            "en": "Are you sure you want to unpair from the current TV and delete saved certificates?",
+            "fr": "Êtes-vous sûr de vouloir vous dissocier de la TV actuelle et supprimer les certificats enregistrés?",
+            "it": "Sei sicuro di voler disassociare la TV corrente e cancellare i certificati salvati?",
+            "de": "Sind Sie sicher, dass Sie die Kopplung mit dem aktuellen TV aufheben und die gespeicherten Zertifikate löschen möchten?",
+            "es": "¿Está seguro de que desea desvincular la TV actual y eliminar los certificados guardados?",
+            "zh": "您确定要取消与当前电视的配对并删除保存的证书吗？"
+        ],
+        "forget_tv_btn": [
+            "ru": "Забыть ТВ",
+            "en": "Forget TV",
+            "fr": "Oublier la TV",
+            "it": "Dimentica TV",
+            "de": "TV vergessen",
+            "es": "Olvidar TV",
+            "zh": "忘记电视"
+        ],
+        "cancel": [
+            "ru": "Отмена",
+            "en": "Cancel",
+            "fr": "Annuler",
+            "it": "Annulla",
+            "de": "Abbrechen",
+            "es": "Cancelar",
+            "zh": "取消"
+        ],
+        "pairing_title": [
+            "ru": "Сопряжение с Google TV",
+            "en": "Pairing with Google TV",
+            "fr": "Association avec Google TV",
+            "it": "Associazione con Google TV",
+            "de": "Kopplung mit Google TV",
+            "es": "Vinculación con Google TV",
+            "zh": "配对 Google TV"
+        ],
+        "pairing_text": [
+            "ru": "Введите 6-значный PIN-код, отображаемый на экране вашего телевизора:",
+            "en": "Enter the 6-digit PIN code displayed on your TV screen:",
+            "fr": "Saisissez le code PIN à 6 chiffres affiché sur l'écran de votre TV:",
+            "it": "Inserisci il codice PIN a 6 cifre visualizzato sullo schermo della TV:",
+            "de": "Geben Sie den 6-stelligen PIN-Code ein, der auf Ihrem TV-Bildschirm angezeigt wird:",
+            "es": "Introduzca el código PIN de 6 dígitos que se muestra en la pantalla de su TV:",
+            "zh": "请输入电视屏幕上显示的 6 位 PIN 码："
+        ],
+        "hud_title": [
+            "ru": "ВВОД ТЕКСТА НА TV",
+            "en": "TYPE TEXT ON TV",
+            "fr": "SAISIE DE TEXTE SUR LA TV",
+            "it": "SCRIVI TESTO SULLA TV",
+            "de": "TEXT EINGEBEN AUF TV",
+            "es": "ESCRIBIR TEXTO EN LA TV",
+            "zh": "在电视上输入文本"
+        ],
+        "hud_placeholder": [
+            "ru": "Введите текст для отправки...",
+            "en": "Enter text to send...",
+            "fr": "Saisissez du texte à envoyer...",
+            "it": "Inserisci il testo da inviare...",
+            "de": "Text zum Senden eingeben...",
+            "es": "Introduzca el texto para enviar...",
+            "zh": "输入要发送的文本..."
+        ],
+        "hud_help": [
+            "ru": "Enter — отправить • Esc — отмена • Поддержка RU / EN / FR / IT / DE / ES / ZH",
+            "en": "Enter — send • Esc — cancel • Supports RU / EN / FR / IT / DE / ES / ZH",
+            "fr": "Entrée — envoyer • Échap — annuler • Supporte RU / EN / FR / IT / DE / ES / ZH",
+            "it": "Invio — invia • Esc — annulla • Supporta RU / EN / FR / IT / DE / ES / ZH",
+            "de": "Eingabe — Senden • Esc — Abbrechen • Unterstützt RU / EN / FR / IT / DE / ES / ZH",
+            "es": "Intro — enviar • Esc — cancelar • Admite RU / EN / FR / IT / DE / ES / ZH",
+            "zh": "Enter — 发送 • Esc — 取消 • 支持 RU / EN / FR / IT / DE / ES / ZH"
+        ],
+        "denied_mic_title": [
+            "ru": "Доступ к микрофону отклонен",
+            "en": "Microphone Access Denied",
+            "fr": "Accès au micro refusé",
+            "it": "Accesso al microfono negato",
+            "de": "Mikrofonzugriff verweigert",
+            "es": "Acceso al micrófono denegado",
+            "zh": "麦克风访问被拒绝"
+        ],
+        "denied_mic_text": [
+            "ru": "Пожалуйста, разрешите доступ к Микрофону и Распознаванию речи для tv_kvm в Системных настройках macOS в разделе Безопасность и Конфиденциальность.",
+            "en": "Please allow Microphone and Speech Recognition access for tv_kvm in macOS System Settings under Privacy & Security.",
+            "fr": "Veuillez autoriser l'accès au microphone et à la reconnaissance vocale pour tv_kvm dans les réglages système macOS sous Confidentialité et sécurité.",
+            "it": "Autorizza l'accesso al microfono e al riconoscimento vocale per tv_kvm nelle Impostazioni di sistema di macOS sotto Privacy e Sicurezza.",
+            "de": "Bitte erlauben Sie den Zugriff auf das Mikrofon und die Spracherkennung für tv_kvm in den macOS-Systemeinstellungen unter Datenschutz & Sicherheit.",
+            "es": "Por favor, permita el acceso al micrófono y al reconocimiento de voz para tv_kvm en la Configuración del sistema de macOS bajo Privacidad y Seguridad.",
+            "zh": "请在 macOS 系统设置的“隐私与安全性”中，允许 tv_kvm 访问麦克风和进行语音识别。"
+        ],
+        "err_recognition_request_failed": [
+            "ru": "Не удалось создать запрос распознавания.",
+            "en": "Could not create recognition request.",
+            "fr": "Impossible de créer la demande de reconnaissance.",
+            "it": "Impossibile creare la richiesta di riconoscimento.",
+            "de": "Erkennungsanfrage konnte nicht erstellt werden.",
+            "es": "No se pudo crear la solicitud de reconocimiento."
+        ],
+        "err_audio_engine_failed": [
+            "ru": "Ошибка запуска аудиодвижка",
+            "en": "Failed to start audio engine",
+            "fr": "Échec du démarrage du moteur audio",
+            "it": "Impossibile avviare il motore audio",
+            "de": "Fehler beim Starten der Audio-Engine",
+            "es": "Error al iniciar el motor de audio"
+        ]
+    ]
+}
+
+// Класс для живого распознавания речи с микрофона Mac на системной локали (автовыбор RU / EN / FR / IT / DE / ES)
 class SpeechManager {
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "ru-RU"))
+    private let speechRecognizer = SFSpeechRecognizer()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let audioEngine = AVAudioEngine()
@@ -51,7 +425,7 @@ class SpeechManager {
         
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest = recognitionRequest else {
-            onError?("Не удалось создать запрос распознавания.")
+            onError?(Localization.get("err_recognition_request_failed"))
             return
         }
         
@@ -84,7 +458,7 @@ class SpeechManager {
                 }
             }
         } catch {
-            onError?("Ошибка запуска аудиодвижка: \(error.localizedDescription)")
+            onError?("\(Localization.get("err_audio_engine_failed")): \(error.localizedDescription)")
             stopRecording()
         }
     }
@@ -485,26 +859,8 @@ class KVMView: NSView {
             accumulatedY = 0.0
         }
         
-        // Условия возврата на Mac на основе активной стороны KVM (требуется сдвиг >= 120 пикселей в противоположную сторону)
-        switch activeEdge {
-        case .right:
-            if accumulatedX <= -120.0 { // Движение влево для выхода
-                exitTVMode()
-                return
-            }
-        case .left:
-            if accumulatedX >= 120.0 { // Движение вправо для выхода
-                exitTVMode()
-                return
-            }
-        case .top:
-            if accumulatedY >= 120.0 { // Движение вниз для выхода (deltaY > 0)
-                exitTVMode()
-                return
-            }
-        }
-        
-        // Обработка горизонтального свайпа с сохранением остатка дельты для плавной непрерывной навигации
+        // 1. Сначала обрабатываем горизонтальный свайп с сохранением остатка дельты.
+        // Это позволяет "поглотить" часть смещения при обычном свайпе навигации до проверки выхода.
         if abs(accumulatedX) >= swipeThreshold {
             if accumulatedX > 0 {
                 sendNavKey("KEYCODE_DPAD_RIGHT")
@@ -515,7 +871,7 @@ class KVMView: NSView {
             }
         }
         
-        // Обработка вертикального свайпа с сохранением остатка дельты
+        // 2. Обрабатываем вертикальный свайп с сохранением остатка дельты.
         if abs(accumulatedY) >= swipeThreshold {
             if accumulatedY > 0 {
                 sendNavKey("KEYCODE_DPAD_DOWN")
@@ -523,6 +879,28 @@ class KVMView: NSView {
             } else {
                 sendNavKey("KEYCODE_DPAD_UP")
                 accumulatedY += swipeThreshold
+            }
+        }
+        
+        // 3. Динамический порог выхода из KVM обратно на Mac (всегда больше порога свайпа для исключения ложных выходов)
+        let exitThreshold = max(120.0, swipeThreshold + 40.0)
+        
+        // Условия возврата на Mac на основе активной стороны KVM
+        switch activeEdge {
+        case .right:
+            if accumulatedX <= -exitThreshold { // Движение влево для выхода
+                exitTVMode()
+                return
+            }
+        case .left:
+            if accumulatedX >= exitThreshold { // Движение вправо для выхода
+                exitTVMode()
+                return
+            }
+        case .top:
+            if accumulatedY >= exitThreshold { // Движение вниз для выхода (deltaY > 0)
+                exitTVMode()
+                return
             }
         }
         
@@ -574,16 +952,11 @@ class KVMView: NSView {
             // Мягкий кулдаун отправки команд прокрутки списков на ТВ (80 мс)
             // Это идеальная частота для автоповтора скроллинга страниц
             if now.timeIntervalSince(lastScrollKeyTime) >= 0.08 {
-                let pkg = currentAppPackage.lowercased()
-                let isBrowser = pkg.contains("browser") || pkg.contains("chrome") || pkg.contains("firefox") || pkg.contains("opera") || pkg.contains("webview")
-                
                 if accumulatedScrollY > 0 {
-                    let key = isBrowser ? "KEYCODE_PAGE_UP" : "KEYCODE_DPAD_UP"
-                    sendKey(key)
+                    sendKey("KEYCODE_DPAD_UP")
                     accumulatedScrollY -= scrollThreshold
                 } else {
-                    let key = isBrowser ? "KEYCODE_PAGE_DOWN" : "KEYCODE_DPAD_DOWN"
-                    sendKey(key)
+                    sendKey("KEYCODE_DPAD_DOWN")
                     accumulatedScrollY += scrollThreshold
                 }
                 lastScrollKeyTime = now
@@ -874,6 +1247,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func setEdgeToLeft() { changeEdge(.left) }
     @objc func setEdgeToTop() { changeEdge(.top) }
     
+    @objc func setLanguageToRU() { changeLanguage("ru") }
+    @objc func setLanguageToEN() { changeLanguage("en") }
+    @objc func setLanguageToFR() { changeLanguage("fr") }
+    @objc func setLanguageToIT() { changeLanguage("it") }
+    @objc func setLanguageToDE() { changeLanguage("de") }
+    @objc func setLanguageToES() { changeLanguage("es") }
+    @objc func setLanguageToZH() { changeLanguage("zh") }
+    
+    func changeLanguage(_ lang: String) {
+        Localization.currentLanguage = lang
+        updateStatusMenu(self.lastStatus)
+    }
+    
     @objc func setScrollVeryFast() { changeScrollThreshold(15.0) }
     @objc func setScrollFast() { changeScrollThreshold(22.0) }
     @objc func setScrollNormal() { changeScrollThreshold(30.0) }
@@ -909,9 +1295,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 } else {
                     print("[Speech] Authorization denied")
                     let alert = NSAlert()
-                    alert.messageText = "Доступ к микрофону и распознаванию речи отклонен"
-                    alert.informativeText = "Пожалуйста, разрешите доступ к Микрофону и Распознаванию речи для tv_kvm в Системных настройках macOS в разделе Безопасность и Конфиденциальность."
-                    alert.addButton(withTitle: "ОК")
+                    alert.messageText = Localization.get("denied_mic_title")
+                    alert.informativeText = Localization.get("denied_mic_text")
+                    alert.addButton(withTitle: "OK")
                     alert.runModal()
                 }
             }
@@ -1044,10 +1430,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc func unpairKVM() {
         let alert = NSAlert()
-        alert.messageText = "Разорвать сопряжение?"
-        alert.informativeText = "Вы уверены, что хотите разорвать сопряжение с текущим телевизором и удалить сохраненные сертификаты?"
-        alert.addButton(withTitle: "Забыть ТВ")
-        alert.addButton(withTitle: "Отмена")
+        alert.messageText = Localization.get("unpair_title")
+        alert.informativeText = Localization.get("unpair_text")
+        alert.addButton(withTitle: Localization.get("forget_tv_btn"))
+        alert.addButton(withTitle: Localization.get("cancel"))
         
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
@@ -1075,9 +1461,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             DispatchQueue.main.async {
                 let alert = NSAlert()
-                alert.messageText = "Конфликт подключений"
-                alert.informativeText = "Управление телевизором было перехвачено другим устройством (например, приложением Google TV на телефоне).\n\nАвтоматическое переподключение приостановлено во избежание конфликтов. Вы можете подключиться заново вручную через меню KVM после отключения другого пульта."
-                alert.addButton(withTitle: "ОК")
+                alert.messageText = Localization.get("conflict_title")
+                alert.informativeText = Localization.get("conflict_text")
+                alert.addButton(withTitle: "OK")
                 alert.runModal()
             }
             
@@ -1115,130 +1501,166 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if let button = self.statusItem.button {
                 switch status {
                 case "READY":
-                    button.title = "🟢 KVM: Подключен"
+                    button.title = Localization.get("kvm_connected")
                     
-                    // Меню при активном подключении
-                    menu.addItem(NSMenuItem(title: "Отключить от ТВ", action: #selector(self.disconnectKVM), keyEquivalent: "d"))
-                    menu.addItem(NSMenuItem(title: "📝 Ввести текст на ТВ (Ctrl+Shift+T)", action: #selector(self.manuallyTriggerTextInput), keyEquivalent: "t"))
-                    menu.addItem(NSMenuItem(title: "Разорвать сопряжение (Забыть ТВ)", action: #selector(self.unpairKVM), keyEquivalent: "u"))
+                    // - Меню при активном подключении
+                    menu.addItem(NSMenuItem(title: Localization.get("disconnect_tv"), action: #selector(self.disconnectKVM), keyEquivalent: "d"))
+                    menu.addItem(NSMenuItem(title: Localization.get("type_text_tv"), action: #selector(self.manuallyTriggerTextInput), keyEquivalent: "t"))
+                    menu.addItem(NSMenuItem(title: Localization.get("forget_tv"), action: #selector(self.unpairKVM), keyEquivalent: "u"))
                     
                 case "NEED_PIN":
-                    button.title = "🟡 KVM: Введите PIN"
+                    button.title = Localization.get("kvm_enter_pin")
                     
-                    // Меню при вводе PIN
-                    menu.addItem(NSMenuItem(title: "Отменить сопряжение", action: #selector(self.disconnectKVM), keyEquivalent: "c"))
+                    // - Меню при вводе PIN
+                    menu.addItem(NSMenuItem(title: Localization.get("cancel_pairing"), action: #selector(self.disconnectKVM), keyEquivalent: "c"))
                     
                     self.promptForPIN { [weak self] pin in
                         self?.socketClient.send(cmd: "PIN \(pin)")
                     }
                     
                 case "CONNECTING":
-                    button.title = "🟡 KVM: Подключение..."
+                    button.title = Localization.get("kvm_connecting")
                     
-                    // Меню при подключении
-                    menu.addItem(NSMenuItem(title: "Отменить подключение", action: #selector(self.disconnectKVM), keyEquivalent: "c"))
+                    // - Меню при подключении
+                    menu.addItem(NSMenuItem(title: Localization.get("cancel_connection"), action: #selector(self.disconnectKVM), keyEquivalent: "c"))
                     
-                default: // DISCONNECTED
-                    button.title = "🔴 KVM: Отключен"
+                default: // - DISCONNECTED
+                    button.title = Localization.get("kvm_disconnected")
                     
                     if hasCert {
-                        // Если сопряжение уже выполнено, даем кнопку подключения
-                        menu.addItem(NSMenuItem(title: "Подключить к ТВ", action: #selector(self.connectKVM), keyEquivalent: "c"))
-                        menu.addItem(NSMenuItem(title: "Разорвать сопряжение (Забыть ТВ)", action: #selector(self.unpairKVM), keyEquivalent: "u"))
+                        // - Если сопряжение уже выполнено, даем кнопку подключения
+                        menu.addItem(NSMenuItem(title: Localization.get("connect_tv"), action: #selector(self.connectKVM), keyEquivalent: "c"))
+                        menu.addItem(NSMenuItem(title: Localization.get("forget_tv"), action: #selector(self.unpairKVM), keyEquivalent: "u"))
                         
                         if self.shouldAutoConnect {
                             self.shouldAutoConnect = false
-                            // Небольшая задержка 0.5с, чтобы дать сокету полностью инициализироваться
+                            // - Небольшая задержка 0.5с, чтобы дать сокету полностью инициализироваться
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                                 self?.connectKVM()
                             }
                         }
                     } else {
-                        // Если сопряжения еще нет, даем кнопку запуска сопряжения
-                        menu.addItem(NSMenuItem(title: "Запустить сопряжение (Pairing)", action: #selector(self.startPairing), keyEquivalent: "p"))
+                        // - Если сопряжения еще нет, даем кнопку запуска сопряжения
+                        menu.addItem(NSMenuItem(title: Localization.get("start_pairing"), action: #selector(self.startPairing), keyEquivalent: "p"))
                     }
                 }
             }
             
             menu.addItem(NSMenuItem.separator())
             
-            // Настройка подменю с выбором сторон
+            // - Настройка подменю с выбором сторон
             let edgeMenu = NSMenu()
             
-            let rightItem = NSMenuItem(title: "👉 Справа (по умолчанию)", action: #selector(self.setEdgeToRight), keyEquivalent: "")
+            let rightItem = NSMenuItem(title: Localization.get("edge_right"), action: #selector(self.setEdgeToRight), keyEquivalent: "")
             rightItem.state = (self.kvmView?.activeEdge == .right) ? .on : .off
             edgeMenu.addItem(rightItem)
             
-            let leftItem = NSMenuItem(title: "👈 Слева", action: #selector(self.setEdgeToLeft), keyEquivalent: "")
+            let leftItem = NSMenuItem(title: Localization.get("edge_left"), action: #selector(self.setEdgeToLeft), keyEquivalent: "")
             leftItem.state = (self.kvmView?.activeEdge == .left) ? .on : .off
             edgeMenu.addItem(leftItem)
             
-            let topItem = NSMenuItem(title: "👆 Сверху", action: #selector(self.setEdgeToTop), keyEquivalent: "")
+            let topItem = NSMenuItem(title: Localization.get("edge_top"), action: #selector(self.setEdgeToTop), keyEquivalent: "")
             topItem.state = (self.kvmView?.activeEdge == .top) ? .on : .off
             edgeMenu.addItem(topItem)
             
-            let edgeMenuItem = NSMenuItem(title: "Сторона перехода на ТВ", action: nil, keyEquivalent: "")
+            let edgeMenuItem = NSMenuItem(title: Localization.get("tv_entry_edge"), action: nil, keyEquivalent: "")
             edgeMenuItem.submenu = edgeMenu
             menu.addItem(edgeMenuItem)
             
-            // Настройка подменю с выбором плавности/чувствительности прокрутки
+            // - Настройка подменю с выбором плавности/чувствительности прокрутки
             let scrollMenu = NSMenu()
             let threshold = self.kvmView?.scrollThreshold ?? 30.0
             
-            let scrollVeryFast = NSMenuItem(title: "Очень быстрая (чувствительная)", action: #selector(self.setScrollVeryFast), keyEquivalent: "")
+            let scrollVeryFast = NSMenuItem(title: Localization.get("sens_very_fast"), action: #selector(self.setScrollVeryFast), keyEquivalent: "")
             scrollVeryFast.state = (threshold == 15.0) ? .on : .off
             scrollMenu.addItem(scrollVeryFast)
             
-            let scrollFast = NSMenuItem(title: "Быстрая", action: #selector(self.setScrollFast), keyEquivalent: "")
+            let scrollFast = NSMenuItem(title: Localization.get("sens_fast"), action: #selector(self.setScrollFast), keyEquivalent: "")
             scrollFast.state = (threshold == 22.0) ? .on : .off
             scrollMenu.addItem(scrollFast)
             
-            let scrollNormal = NSMenuItem(title: "Средняя (по умолчанию)", action: #selector(self.setScrollNormal), keyEquivalent: "")
+            let scrollNormal = NSMenuItem(title: Localization.get("sens_medium"), action: #selector(self.setScrollNormal), keyEquivalent: "")
             scrollNormal.state = (threshold == 30.0) ? .on : .off
             scrollMenu.addItem(scrollNormal)
             
-            let scrollSlow = NSMenuItem(title: "Плавная / Медленная", action: #selector(self.setScrollSlow), keyEquivalent: "")
+            let scrollSlow = NSMenuItem(title: Localization.get("sens_slow"), action: #selector(self.setScrollSlow), keyEquivalent: "")
             scrollSlow.state = (threshold == 45.0) ? .on : .off
             scrollMenu.addItem(scrollSlow)
             
-            let scrollVerySlow = NSMenuItem(title: "Очень медленная", action: #selector(self.setScrollVerySlow), keyEquivalent: "")
+            let scrollVerySlow = NSMenuItem(title: Localization.get("sens_very_slow"), action: #selector(self.setScrollVerySlow), keyEquivalent: "")
             scrollVerySlow.state = (threshold == 60.0) ? .on : .off
             scrollMenu.addItem(scrollVerySlow)
             
-            let scrollMenuItem = NSMenuItem(title: "Чувствительность прокрутки", action: nil, keyEquivalent: "")
+            let scrollMenuItem = NSMenuItem(title: Localization.get("scroll_sensitivity"), action: nil, keyEquivalent: "")
             scrollMenuItem.submenu = scrollMenu
             menu.addItem(scrollMenuItem)
             
-            // Настройка подменю с выбором плавности/чувствительности свайпов
+            // - Настройка подменю с выбором плавности/чувствительности свайпов
             let swipeMenu = NSMenu()
             let swipeThreshold = self.kvmView?.swipeThreshold ?? 80.0
             
-            let swipeVeryFast = NSMenuItem(title: "Очень быстрая (чувствительная)", action: #selector(self.setSwipeVeryFast), keyEquivalent: "")
+            let swipeVeryFast = NSMenuItem(title: Localization.get("sens_very_fast"), action: #selector(self.setSwipeVeryFast), keyEquivalent: "")
             swipeVeryFast.state = (swipeThreshold == 40.0) ? .on : .off
             swipeMenu.addItem(swipeVeryFast)
             
-            let swipeFast = NSMenuItem(title: "Быстрая", action: #selector(self.setSwipeFast), keyEquivalent: "")
+            let swipeFast = NSMenuItem(title: Localization.get("sens_fast"), action: #selector(self.setSwipeFast), keyEquivalent: "")
             swipeFast.state = (swipeThreshold == 60.0) ? .on : .off
             swipeMenu.addItem(swipeFast)
             
-            let swipeNormal = NSMenuItem(title: "Средняя (по умолчанию)", action: #selector(self.setSwipeNormal), keyEquivalent: "")
+            let swipeNormal = NSMenuItem(title: Localization.get("sens_medium"), action: #selector(self.setSwipeNormal), keyEquivalent: "")
             swipeNormal.state = (swipeThreshold == 80.0) ? .on : .off
             swipeMenu.addItem(swipeNormal)
             
-            let swipeSlow = NSMenuItem(title: "Плавная / Медленная", action: #selector(self.setSwipeSlow), keyEquivalent: "")
+            let swipeSlow = NSMenuItem(title: Localization.get("sens_slow"), action: #selector(self.setSwipeSlow), keyEquivalent: "")
             swipeSlow.state = (swipeThreshold == 110.0) ? .on : .off
             swipeMenu.addItem(swipeSlow)
             
-            let swipeVerySlow = NSMenuItem(title: "Очень медленная", action: #selector(self.setSwipeVerySlow), keyEquivalent: "")
+            let swipeVerySlow = NSMenuItem(title: Localization.get("sens_very_slow"), action: #selector(self.setSwipeVerySlow), keyEquivalent: "")
             swipeVerySlow.state = (swipeThreshold == 140.0) ? .on : .off
             swipeMenu.addItem(swipeVerySlow)
             
-            let swipeMenuItem = NSMenuItem(title: "Чувствительность свайпов", action: nil, keyEquivalent: "")
+            let swipeMenuItem = NSMenuItem(title: Localization.get("swipe_sensitivity"), action: nil, keyEquivalent: "")
             swipeMenuItem.submenu = swipeMenu
             menu.addItem(swipeMenuItem)
             
+            // - Настройка подменю с выбором языка
+            let langMenu = NSMenu()
+            let currentLang = Localization.currentLanguage
+            
+            let langRU = NSMenuItem(title: "Русский", action: #selector(self.setLanguageToRU), keyEquivalent: "")
+            langRU.state = (currentLang == "ru") ? .on : .off
+            langMenu.addItem(langRU)
+            
+            let langEN = NSMenuItem(title: "English", action: #selector(self.setLanguageToEN), keyEquivalent: "")
+            langEN.state = (currentLang == "en") ? .on : .off
+            langMenu.addItem(langEN)
+            
+            let langFR = NSMenuItem(title: "Français", action: #selector(self.setLanguageToFR), keyEquivalent: "")
+            langFR.state = (currentLang == "fr") ? .on : .off
+            langMenu.addItem(langFR)
+            
+            let langIT = NSMenuItem(title: "Italiano", action: #selector(self.setLanguageToIT), keyEquivalent: "")
+            langIT.state = (currentLang == "it") ? .on : .off
+            langMenu.addItem(langIT)
+            
+            let langDE = NSMenuItem(title: "Deutsch", action: #selector(self.setLanguageToDE), keyEquivalent: "")
+            langDE.state = (currentLang == "de") ? .on : .off
+            langMenu.addItem(langDE)
+            
+            let langES = NSMenuItem(title: "Español", action: #selector(self.setLanguageToES), keyEquivalent: "")
+            langES.state = (currentLang == "es") ? .on : .off
+            langMenu.addItem(langES)
+            
+            let langZH = NSMenuItem(title: "简体中文", action: #selector(self.setLanguageToZH), keyEquivalent: "")
+            langZH.state = (currentLang == "zh") ? .on : .off
+            langMenu.addItem(langZH)
+            
+            let langMenuItem = NSMenuItem(title: Localization.get("language"), action: nil, keyEquivalent: "")
+            langMenuItem.submenu = langMenu
+            menu.addItem(langMenuItem)
+            
             menu.addItem(NSMenuItem.separator())
-            menu.addItem(NSMenuItem(title: "Выйти из KVM", action: #selector(self.terminate), keyEquivalent: "q"))
+            menu.addItem(NSMenuItem(title: Localization.get("exit_kvm"), action: #selector(self.terminate), keyEquivalent: "q"))
             
             self.statusItem.menu = menu
         }
@@ -1292,7 +1714,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         effectView.layer?.masksToBounds = true
         window.contentView = effectView
         
-        let titleLabel = NSTextField(labelWithString: "ВВОД ТЕКСТА НА TV")
+        let titleLabel = NSTextField(labelWithString: Localization.get("hud_title"))
         titleLabel.frame = NSRect(x: 20, y: windowHeight - 30, width: windowWidth - 40, height: 16)
         titleLabel.textColor = NSColor(white: 0.9, alpha: 0.75)
         titleLabel.font = NSFont.systemFont(ofSize: 11, weight: .bold)
@@ -1310,7 +1732,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         textField.drawsBackground = false
         textField.textColor = .white
         textField.font = NSFont.systemFont(ofSize: 15, weight: .regular)
-        textField.placeholderString = "Введите текст для отправки..."
+        textField.placeholderString = Localization.get("hud_placeholder")
         textField.focusRingType = .none
         textField.delegate = self
         textField.stringValue = initialText
@@ -1329,7 +1751,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         effectView.addSubview(mic)
         self.micButton = mic
         
-        let helpLabel = NSTextField(labelWithString: "Enter — отправить • Esc — отмена • Поддержка языков RU / EN")
+        let helpLabel = NSTextField(labelWithString: Localization.get("hud_help"))
         helpLabel.frame = NSRect(x: 20, y: 18, width: windowWidth - 40, height: 14)
         helpLabel.textColor = NSColor(white: 0.9, alpha: 0.45)
         helpLabel.font = NSFont.systemFont(ofSize: 10, weight: .regular)
@@ -1380,6 +1802,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Сбрасываем локальный текстовый буфер на мосте
         socketClient.send(cmd: "RESET")
         
+        if cancelled {
+            // Принудительно закрываем виртуальную клавиатуру на ТВ, отправляя Back
+            socketClient.send(cmd: "KEY KEYCODE_BACK")
+        }
+        
         if self.lastStatus == "READY" {
             self.window?.makeKeyAndOrderFront(nil)
         }
@@ -1405,10 +1832,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func promptForPIN(completion: @escaping (String) -> Void) {
         let alert = NSAlert()
-        alert.messageText = "Сопряжение с Google TV"
-        alert.informativeText = "Введите 6-значный PIN-код, отображаемый на экране вашего телевизора:"
+        alert.messageText = Localization.get("pairing_title")
+        alert.informativeText = Localization.get("pairing_text")
         alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Отмена")
+        alert.addButton(withTitle: Localization.get("cancel"))
         
         let inputTextField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
         inputTextField.placeholderString = "123456"
@@ -1432,6 +1859,19 @@ extension AppDelegate: NSTextFieldDelegate {
         if let base64Text = text.data(using: .utf8)?.base64EncodedString() {
             socketClient.send(cmd: "SET_TEXT \(base64Text)")
         }
+    }
+    
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            print("[Swift KVM] Enter key intercepted in text field delegate.")
+            self.submitText()
+            return true
+        } else if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            print("[Swift KVM] Escape key intercepted in text field delegate.")
+            self.dismissInputWindow(cancelled: true)
+            return true
+        }
+        return false
     }
 }
 
