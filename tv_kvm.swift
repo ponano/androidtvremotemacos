@@ -601,6 +601,8 @@ class SocketClient {
     var queue = DispatchQueue(label: "KVM_SocketQueue")
     var onStatusChange: ((String) -> Void)?
     var onImeShow: ((String) -> Void)?
+    var onImeUpdate: ((String) -> Void)?
+    var onImeHide: (() -> Void)?
     var onAppChange: ((String) -> Void)?
     
     func connect() {
@@ -686,6 +688,23 @@ class SocketClient {
             }
             print("[Swift Socket] IME_SHOW received, text: \"\(text)\"")
             onImeShow?(text)
+        } else if trimmed.hasPrefix("IME_UPDATE") {
+            let parts = trimmed.split(separator: " ", maxSplits: 1)
+            let base64Val = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines) : ""
+            let text: String
+            if base64Val.isEmpty {
+                text = ""
+            } else if let data = Data(base64Encoded: base64Val),
+                      let decoded = String(data: data, encoding: .utf8) {
+                text = decoded
+            } else {
+                text = ""
+            }
+            print("[Swift Socket] IME_UPDATE received, text: \"\(text)\"")
+            onImeUpdate?(text)
+        } else if trimmed == "IME_HIDE" {
+            print("[Swift Socket] IME_HIDE received.")
+            onImeHide?()
         } else if trimmed.hasPrefix("APP ") {
             let appPackage = trimmed.replacingOccurrences(of: "APP ", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
             print("[Swift Socket] APP received: \"\(appPackage)\"")
@@ -709,8 +728,26 @@ class KVMView: NSView {
     var lastScrollKeyTime = Date()
     var activationTimer: Timer?
     var currentAppPackage: String = ""
+    
+    // Приложения-браузеры, для которых используется непрерывное удержание стрелки (имитация пульта)
+    let browserPackages: Set<String> = [
+        "com.tcl.browser",        // BrowseHere
+        "com.opera.browser",
+        "com.phlox.tvwebbrowser", // TV Bro
+    ]
+    var isBrowserActive: Bool {
+        return browserPackages.contains(currentAppPackage)
+    }
     var scrollThreshold = 30.0
-    var swipeThreshold = 80.0
+    var swipeThreshold = 50.0
+    
+    // Отслеживание тапа 3 пальцами (Home)
+    var maxSimultaneousTouches = 0
+    var threeFingerTouchStartTime: Date?
+    
+    // Непрерывное удержание стрелки (имитация зажатой кнопки физического пульта)
+    var currentHoldDirection: String? = nil  // Текущая зажатая клавиша (nil = ничего не зажато)
+    var holdIdleTimer: Timer? = nil          // Таймер отпускания при остановке пальца
     
     private var trackingArea: NSTrackingArea?
     
@@ -722,6 +759,9 @@ class KVMView: NSView {
             macWidth = Double(screenFrame.width)
             macHeight = Double(screenFrame.height)
         }
+        
+        // Включаем отслеживание касаний трекпада для обнаружения мультитач-жестов
+        self.allowedTouchTypes = [.indirect]
     }
     
     override func updateTrackingAreas() {
@@ -747,11 +787,62 @@ class KVMView: NSView {
         }
     }
     
+    func sendTrackpadKey(_ key: String) {
+        if let delegate = NSApp.delegate as? AppDelegate {
+            delegate.socketClient.send(cmd: "TRACKPAD \(key)")
+        }
+    }
+    
+    /// Начать удержание стрелки (или продлить, если направление не изменилось)
+    func holdNavKey(_ key: String) {
+        // Сбрасываем таймер idle — палец всё ещё движется
+        holdIdleTimer?.invalidate()
+        
+        if currentHoldDirection == key {
+            // Та же кнопка уже зажата — просто продлеваем удержание
+            // Запускаем таймер отпускания: если палец остановится на 150 мс — отпускаем
+            holdIdleTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
+                self?.releaseHold()
+            }
+            return
+        }
+        
+        // Если зажата другая кнопка — сначала отпускаем её
+        if currentHoldDirection != nil {
+            releaseHold()
+        }
+        
+        // Зажимаем новую кнопку
+        currentHoldDirection = key
+        if let delegate = NSApp.delegate as? AppDelegate {
+            delegate.socketClient.send(cmd: "HOLD_START \(key)")
+        }
+        print("[KVM] HOLD_START: \(key)")
+        
+        // Таймер отпускания при остановке пальца
+        holdIdleTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
+            self?.releaseHold()
+        }
+    }
+    
+    /// Отпустить текущую зажатую стрелку
+    func releaseHold() {
+        holdIdleTimer?.invalidate()
+        holdIdleTimer = nil
+        if let dir = currentHoldDirection {
+            if let delegate = NSApp.delegate as? AppDelegate {
+                delegate.socketClient.send(cmd: "HOLD_END \(dir)")
+            }
+            print("[KVM] HOLD_END: \(dir)")
+            currentHoldDirection = nil
+        }
+    }
+    
     func sendNavKey(_ key: String) {
         let now = Date()
-        // Кулдаун 60 мс между командами навигации для плавной, отзывчивой и быстрой работы свайпов трекпада
-        if now.timeIntervalSince(lastKeySentTime) >= 0.06 {
-            sendKey(key)
+        // Кулдаун 100 мс (0.10 сек) между командами навигации для защиты от дребезга и мгновенного отклика на жесты
+        if now.timeIntervalSince(lastKeySentTime) >= 0.10 {
+            sendTrackpadKey(key)
             lastKeySentTime = now
         }
     }
@@ -831,6 +922,9 @@ class KVMView: NSView {
                 delegate.socketClient.send(cmd: "RESET")
             }
             
+            // Отпускаем зажатую кнопку, если есть
+            releaseHold()
+            
             // Показываем курсор обратно на Макбуке
             NSCursor.unhide()
             
@@ -859,27 +953,28 @@ class KVMView: NSView {
             accumulatedY = 0.0
         }
         
-        // 1. Сначала обрабатываем горизонтальный свайп с сохранением остатка дельты.
-        // Это позволяет "поглотить" часть смещения при обычном свайпе навигации до проверки выхода.
+        // 1. Сначала обрабатываем горизонтальный свайп
         if abs(accumulatedX) >= swipeThreshold {
-            if accumulatedX > 0 {
-                sendNavKey("KEYCODE_DPAD_RIGHT")
-                accumulatedX -= swipeThreshold
+            let key = accumulatedX > 0 ? "KEYCODE_DPAD_RIGHT" : "KEYCODE_DPAD_LEFT"
+            if isBrowserActive {
+                holdNavKey(key)   // Браузер: непрерывное удержание как на пульте
             } else {
-                sendNavKey("KEYCODE_DPAD_LEFT")
-                accumulatedX += swipeThreshold
+                sendNavKey(key)   // Лаунчер/YouTube: дискретные шаги
             }
+            accumulatedX = 0.0
+            accumulatedY = 0.0
         }
         
-        // 2. Обрабатываем вертикальный свайп с сохранением остатка дельты.
+        // 2. Обрабатываем вертикальный свайп
         if abs(accumulatedY) >= swipeThreshold {
-            if accumulatedY > 0 {
-                sendNavKey("KEYCODE_DPAD_DOWN")
-                accumulatedY -= swipeThreshold
+            let key = accumulatedY > 0 ? "KEYCODE_DPAD_DOWN" : "KEYCODE_DPAD_UP"
+            if isBrowserActive {
+                holdNavKey(key)
             } else {
-                sendNavKey("KEYCODE_DPAD_UP")
-                accumulatedY += swipeThreshold
+                sendNavKey(key)
             }
+            accumulatedX = 0.0
+            accumulatedY = 0.0
         }
         
         // 3. Динамический порог выхода из KVM обратно на Mac (всегда больше порога свайпа для исключения ложных выходов)
@@ -963,6 +1058,46 @@ class KVMView: NSView {
             }
         }
     }
+    
+    // === Мультитач-жесты трекпада ===
+    
+    override func touchesBegan(with event: NSEvent) {
+        guard isActive else { return }
+        let touches = event.touches(matching: .touching, in: self)
+        let count = touches.count
+        maxSimultaneousTouches = max(maxSimultaneousTouches, count)
+        if count >= 3 && threeFingerTouchStartTime == nil {
+            threeFingerTouchStartTime = Date()
+        }
+    }
+    
+    override func touchesEnded(with event: NSEvent) {
+        guard isActive else {
+            maxSimultaneousTouches = 0
+            threeFingerTouchStartTime = nil
+            return
+        }
+        let remaining = event.touches(matching: .touching, in: self)
+        if remaining.count == 0 {
+            // Все пальцы подняты
+            if maxSimultaneousTouches == 3, let start = threeFingerTouchStartTime {
+                let duration = Date().timeIntervalSince(start)
+                if duration < 0.4 { // Менее 400 мс — это тап, а не свайп
+                    print("[KVM] Тап 3 пальцами: Home (KEYCODE_HOME)")
+                    sendKey("KEYCODE_HOME")
+                }
+            }
+            maxSimultaneousTouches = 0
+            threeFingerTouchStartTime = nil
+        }
+    }
+    
+    override func touchesCancelled(with event: NSEvent) {
+        maxSimultaneousTouches = 0
+        threeFingerTouchStartTime = nil
+    }
+    
+    // === Клавиатура ===
     
     override func keyDown(with event: NSEvent) {
         guard isActive else { return }
@@ -1350,7 +1485,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let savedSwipe = UserDefaults.standard.object(forKey: "KVM_SwipeThreshold") as? Double {
             kvmView.swipeThreshold = savedSwipe
         } else {
-            kvmView.swipeThreshold = 80.0
+            kvmView.swipeThreshold = 50.0
         }
         
         window.contentView = kvmView
@@ -1400,6 +1535,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         socketClient.onImeShow = { [weak self] text in
             DispatchQueue.main.async {
                 self?.showInputWindow(initialText: text)
+            }
+        }
+        
+        socketClient.onImeUpdate = { [weak self] text in
+            DispatchQueue.main.async {
+                // Обновляем текст в уже открытом HUD без повторного показа
+                if let textField = self?.inputTextField, self?.inputWindow != nil {
+                    textField.stringValue = text
+                }
+            }
+        }
+        
+        socketClient.onImeHide = { [weak self] in
+            DispatchQueue.main.async {
+                // Автоматическое закрытие HUD при смене фокуса на ТВ
+                // Не отправляем KEYCODE_BACK, потому что ТВ сам закрыл клавиатуру
+                if self?.inputWindow != nil {
+                    self?.dismissInputWindow(cancelled: false)
+                }
             }
         }
         

@@ -89,6 +89,7 @@ class RemoteManager extends _events.default {
         console.debug("Start Remote Connect");
         _this.client = _tls.default.connect(options, () => {//console.debug("Remote connected")
         });
+        _this.client.setNoDelay(true);
 
         _this.client.on('timeout', () => {
           console.debug('timeout');

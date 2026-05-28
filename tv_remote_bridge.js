@@ -36,6 +36,7 @@ function handleIncomingImeMessage(message) {
             }
             if (ime.appInfo.appPackage) {
                 console.log(`[Bridge] Active app package: ${ime.appInfo.appPackage}`);
+                currentActiveApp = ime.appInfo.appPackage;
                 if (activeSocket) {
                     activeSocket.write(`APP ${ime.appInfo.appPackage}\n`);
                 }
@@ -59,11 +60,14 @@ function handleIncomingImeMessage(message) {
                 }
                 console.log(`[Bridge] Sync from TV (KeyInject): "${currentText}", cursorPosition: ${cursorPosition}, counterField: ${localFieldCounter}, sessionCounter: ${imeSessionCounter}`);
                 
-                // Если экранная клавиатура открылась на ТВ (и HUD на Mac сейчас неактивен),
-                // то автоматически вызываем текстовое окно ввода на Mac.
-                if (!isHudActive && !isEcho && imeSessionCounter !== lastDismissedSessionCounter) {
-                    console.log(`[Bridge] TV keyboard active status detected via KeyInject. Auto-triggering Mac HUD.`);
-                    triggerImeShow(currentText);
+                // KeyInject — фоновая синхронизация буфера. НЕ вызываем HUD автоматически.
+                // Браузеры (BrowseHere, etc.) спамят KeyInject при открытии, что ложно
+                // активировало HUD и выбивало KVM из режима управления тачпадом.
+                // HUD вызывается ТОЛЬКО из remoteImeShowRequest (явный запрос от пользователя).
+                if (isHudActive && !isEcho && activeSocket) {
+                    // Если HUD уже открыт, обновляем текст в реальном времени
+                    const base64Val = Buffer.from(currentText || "").toString('base64');
+                    activeSocket.write(`IME_UPDATE ${base64Val}\n`);
                 }
             }
         }
@@ -217,7 +221,29 @@ function sendImeText(text) {
     }
 }
 
-function sendKeyDirect(keyName) {
+// Список приложений-браузеров, в которых InputDispatcher блокирует RemoteKeyInject
+// из-за конфликта с активным IME-соединением (адресная строка WebView).
+const BROWSER_PACKAGES = new Set([
+    'com.tcl.browser',      // BrowseHere
+    'com.opera.browser',
+    'com.phlox.tvwebbrowser', // TV Bro
+]);
+
+// DPAD-клавиши, для которых применяется workaround при браузере
+const BROWSER_WORKAROUND_KEYS = new Set([
+    'KEYCODE_DPAD_UP', 'KEYCODE_DPAD_DOWN', 'KEYCODE_DPAD_LEFT', 'KEYCODE_DPAD_RIGHT',
+    'KEYCODE_DPAD_CENTER', 'KEYCODE_ENTER',
+    'KEYCODE_PAGE_UP', 'KEYCODE_PAGE_DOWN', 'KEYCODE_TAB'
+]);
+
+// Текущее активное приложение на ТВ (обновляется из remoteImeKeyInject.appInfo)
+let currentActiveApp = '';
+
+// Троттлинг применяется ТОЛЬКО к трекпаду в браузере (клавиатура не затрагивается)
+let lastBrowserTrackpadTime = 0;
+const BROWSER_TRACKPAD_THROTTLE_MS = 120;
+
+function sendKeyDirect(keyName, isTrackpad) {
     let keyCode = null;
     if (/^\d+$/.test(keyName)) {
         const val = parseInt(keyName);
@@ -232,9 +258,39 @@ function sendKeyDirect(keyName) {
     }
 
     if (keyCode !== null && status === "READY") {
+        // Эвристика: при нажатии Home сбрасываем контекст активного приложения
+        if (keyName === 'KEYCODE_HOME') {
+            console.log(`[Bridge] Home key detected, resetting currentActiveApp from "${currentActiveApp}" to ""`);
+            currentActiveApp = '';
+        }
+
+        // Browser workaround: START_LONG + 70 мс + END_LONG
+        // Применяется ТОЛЬКО для навигационных клавиш от ТРЕКПАДА в БРАУЗЕРЕ.
+        // WebView BrowseHere требует ненулевое удержание кнопки для регистрации DPAD-события.
+        // Клавиатура и все остальные приложения всегда получают мгновенный SHORT.
+        if (isTrackpad && BROWSER_PACKAGES.has(currentActiveApp) && BROWSER_WORKAROUND_KEYS.has(keyName)) {
+            const now = Date.now();
+            if (now - lastBrowserTrackpadTime < BROWSER_TRACKPAD_THROTTLE_MS) {
+                return; // Защита от перегрузки uinput-буфера ТВ
+            }
+            lastBrowserTrackpadTime = now;
+
+            console.log(`[Bridge] sendKeyDirect (Trackpad+Browser): ${keyName} START_LONG (code=${keyCode})`);
+            androidRemote.sendKey(keyCode, RemoteDirection.START_LONG);
+            
+            setTimeout(() => {
+                if (status === "READY") {
+                    console.log(`[Bridge] sendKeyDirect (Trackpad+Browser): ${keyName} END_LONG (code=${keyCode})`);
+                    androidRemote.sendKey(keyCode, RemoteDirection.END_LONG);
+                }
+            }, 70);
+            return;
+        }
+
+        console.log(`[Bridge] sendKeyDirect: ${keyName} (code=${keyCode}), trackpad=${!!isTrackpad}, activeApp="${currentActiveApp}"`);
         androidRemote.sendKey(keyCode, RemoteDirection.SHORT);
     } else {
-        console.warn("[Bridge] Cannot send key:", keyName);
+        console.warn("[Bridge] Cannot send key:", keyName, "status:", status, "keyCode:", keyCode);
     }
 }
 
@@ -424,8 +480,9 @@ function handleCommand(cmd) {
         isHudActive = false;
         lastDismissedSessionCounter = imeSessionCounter;
         console.log("[Bridge] Local IME text buffer reset (HUD closed).");
-    } else if (cmd.startsWith("KEY ")) {
-        const keyName = cmd.substring(4).trim();
+    } else if (cmd.startsWith("KEY ") || cmd.startsWith("TRACKPAD ")) {
+        const isTrackpad = cmd.startsWith("TRACKPAD ");
+        const keyName = cmd.substring(isTrackpad ? 9 : 4).trim();
         
         if (keyName === "KEYCODE_DEL") {
             if (cursorPosition > 0) {
@@ -433,24 +490,40 @@ function handleCommand(cmd) {
                 sendImeText(newText);
             } else {
                 // Если буфер пуст, на всякий случай пересылаем DEL на ТВ
-                sendKeyDirect(keyName);
+                sendKeyDirect(keyName, isTrackpad);
             }
         } else if (keyName === "KEYCODE_DPAD_LEFT") {
             if (cursorPosition > 0) {
                 cursorPosition--;
             }
-            sendKeyDirect(keyName);
+            sendKeyDirect(keyName, isTrackpad);
         } else if (keyName === "KEYCODE_DPAD_RIGHT") {
             if (cursorPosition < currentText.length) {
                 cursorPosition++;
             }
-            sendKeyDirect(keyName);
+            sendKeyDirect(keyName, isTrackpad);
         } else if (keyName === "KEYCODE_ENTER") {
             currentText = "";
             cursorPosition = 0;
-            sendKeyDirect(keyName);
+            sendKeyDirect(keyName, isTrackpad);
         } else {
-            sendKeyDirect(keyName);
+            sendKeyDirect(keyName, isTrackpad);
+        }
+    } else if (cmd.startsWith("HOLD_START ")) {
+        // Непрерывное удержание стрелки: имитация зажатой кнопки физического пульта
+        const keyName = cmd.substring(11).trim();
+        const keyCode = RemoteKeyCode[keyName];
+        if (keyCode !== undefined && status === "READY") {
+            console.log(`[Bridge] HOLD_START: ${keyName} (code=${keyCode}), activeApp="${currentActiveApp}"`);
+            androidRemote.sendKey(keyCode, RemoteDirection.START_LONG);
+        }
+    } else if (cmd.startsWith("HOLD_END ")) {
+        // Отпускание зажатой стрелки
+        const keyName = cmd.substring(9).trim();
+        const keyCode = RemoteKeyCode[keyName];
+        if (keyCode !== undefined && status === "READY") {
+            console.log(`[Bridge] HOLD_END: ${keyName} (code=${keyCode})`);
+            androidRemote.sendKey(keyCode, RemoteDirection.END_LONG);
         }
     } else if (cmd === "CONNECT") {
         if (status === "DISCONNECTED" || status === "CONNECTING") {
