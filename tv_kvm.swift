@@ -386,7 +386,7 @@ struct Localization {
 
 // Класс для живого распознавания речи с микрофона Mac на системной локали (автовыбор RU / EN / FR / IT / DE / ES)
 class SpeechManager {
-    private let speechRecognizer = SFSpeechRecognizer()
+    private var speechRecognizer: SFSpeechRecognizer?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let audioEngine = AVAudioEngine()
@@ -420,6 +420,20 @@ class SpeechManager {
             recognitionTask.cancel()
             self.recognitionTask = nil
         }
+        
+        let localeId: String
+        switch Localization.currentLanguage {
+        case "ru": localeId = "ru-RU"
+        case "en": localeId = "en-US"
+        case "fr": localeId = "fr-FR"
+        case "it": localeId = "it-IT"
+        case "de": localeId = "de-DE"
+        case "es": localeId = "es-ES"
+        case "zh": localeId = "zh-CN"
+        default: localeId = "en-US"
+        }
+        
+        speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: localeId))
         
         let inputNode = audioEngine.inputNode
         
@@ -1442,6 +1456,126 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let speechManager = SpeechManager()
     var wasKVMActiveBeforeInput = false
     var isTyping = false
+    
+    // HUD-справка по жестам
+    var helpOverlayWindow: NSWindow?
+    var helpDismissTimer: Timer?
+    
+    func showHelpOverlay() {
+        // Закрываем старый если есть
+        hideHelpOverlay()
+        
+        let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let windowWidth: CGFloat = 340.0
+        let windowHeight: CGFloat = 290.0
+        let x = (screenFrame.width - windowWidth) / 2.0 + screenFrame.origin.x
+        let y = screenFrame.origin.y + 60.0  // Внизу экрана
+        let frame = NSRect(x: x, y: y, width: windowWidth, height: windowHeight)
+        
+        let helpWindow = NSWindow(
+            contentRect: frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        helpWindow.isOpaque = false
+        helpWindow.backgroundColor = .clear
+        helpWindow.hasShadow = true
+        helpWindow.level = .floating
+        helpWindow.ignoresMouseEvents = true  // Не перехватывает клики
+        helpWindow.alphaValue = 0.0  // Начинаем с невидимого
+        
+        let effectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight))
+        effectView.material = .hudWindow
+        effectView.blendingMode = .behindWindow
+        effectView.state = .active
+        effectView.wantsLayer = true
+        effectView.layer?.cornerRadius = 16.0
+        
+        // Заголовок
+        let titleLabel = NSTextField(labelWithString: "📺 TV Пульт — Управление трекпадом")
+        titleLabel.frame = NSRect(x: 16, y: windowHeight - 36, width: windowWidth - 32, height: 20)
+        titleLabel.font = NSFont.boldSystemFont(ofSize: 14)
+        titleLabel.textColor = .white
+        titleLabel.alignment = .center
+        
+        // Разделитель
+        let separator = NSBox(frame: NSRect(x: 20, y: windowHeight - 44, width: windowWidth - 40, height: 1))
+        separator.boxType = .separator
+        
+        // Жесты — строки
+        let gestures: [(String, String)] = [
+            ("☝️  Свайп 1 пальцем", "Навигация (стрелки)"),
+            ("👆  Клик (короткий)", "Выбор / OK"),
+            ("👆  Клик (зажать ≥1с)", "Режим скроллинга"),
+            ("✌️  Клик 2 пальцами", "Назад"),
+            ("🤟  Тап 3 пальцами", "Home"),
+            ("⬅️  Свайп влево / Esc", "Выход на Mac"),
+        ]
+        
+        let lineHeight: CGFloat = 32.0
+        let startY = windowHeight - 58.0
+        
+        for (i, gesture) in gestures.enumerated() {
+            let y = startY - CGFloat(i) * lineHeight
+            
+            let iconLabel = NSTextField(labelWithString: gesture.0)
+            iconLabel.frame = NSRect(x: 16, y: y, width: 190, height: 22)
+            iconLabel.font = NSFont.systemFont(ofSize: 13)
+            iconLabel.textColor = NSColor.white.withAlphaComponent(0.95)
+            
+            let descLabel = NSTextField(labelWithString: gesture.1)
+            descLabel.frame = NSRect(x: 200, y: y, width: windowWidth - 216, height: 22)
+            descLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+            descLabel.textColor = NSColor(calibratedRed: 0.4, green: 0.85, blue: 1.0, alpha: 1.0)
+            descLabel.alignment = .right
+            
+            effectView.addSubview(iconLabel)
+            effectView.addSubview(descLabel)
+        }
+        
+        // Подсказка внизу
+        let hintLabel = NSTextField(labelWithString: "Подсказка исчезнет через 4 сек")
+        hintLabel.frame = NSRect(x: 16, y: 8, width: windowWidth - 32, height: 16)
+        hintLabel.font = NSFont.systemFont(ofSize: 10)
+        hintLabel.textColor = NSColor.white.withAlphaComponent(0.4)
+        hintLabel.alignment = .center
+        
+        effectView.addSubview(titleLabel)
+        effectView.addSubview(separator)
+        effectView.addSubview(hintLabel)
+        
+        helpWindow.contentView = effectView
+        helpWindow.orderFront(nil)
+        
+        // Плавное появление
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.3
+            helpWindow.animator().alphaValue = 0.95
+        }
+        
+        self.helpOverlayWindow = helpWindow
+        
+        // Автоисчезновение через 4 сек
+        helpDismissTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: false) { [weak self] _ in
+            self?.hideHelpOverlay()
+        }
+    }
+    
+    func hideHelpOverlay() {
+        helpDismissTimer?.invalidate()
+        helpDismissTimer = nil
+        
+        guard let helpWindow = self.helpOverlayWindow else { return }
+        
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.5
+            helpWindow.animator().alphaValue = 0.0
+        }, completionHandler: {
+            helpWindow.orderOut(nil)
+            self.helpOverlayWindow = nil
+        })
+    }
     
     var kvmView: KVMView? {
         return window?.contentView as? KVMView
