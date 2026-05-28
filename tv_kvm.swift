@@ -749,6 +749,11 @@ class KVMView: NSView {
     var currentHoldDirection: String? = nil  // Текущая зажатая клавиша (nil = ничего не зажато)
     var holdIdleTimer: Timer? = nil          // Таймер отпускания при остановке пальца
     
+    // Количество пальцев на трекпаде (для определения жеста: 1=навигация, 2=скролл, 3=Home)
+    var currentTouchCount = 0
+    var accumulatedScrollDeltaY = 0.0        // Накопление дельты для 2-пальцевого скролла в браузере
+    let browserScrollThreshold = 15.0       // Порог срабатывания скролла в браузере
+    
     private var trackingArea: NSTrackingArea?
     
     override func viewDidMoveToWindow() {
@@ -953,6 +958,47 @@ class KVMView: NSView {
             accumulatedY = 0.0
         }
         
+        // === Режим скроллинга: 2 пальца на трекпаде + браузер ===
+        if currentTouchCount >= 2 && isBrowserActive {
+            // При 2 пальцах в браузере вертикальная дельта используется для скролла страницы
+            accumulatedScrollDeltaY += Double(event.deltaY)
+            accumulatedX = 0.0
+            accumulatedY = 0.0
+            
+            // Отпускаем зажатую стрелку навигации, если она была
+            releaseHold()
+            
+            if abs(accumulatedScrollDeltaY) >= browserScrollThreshold {
+                let now = Date()
+                if now.timeIntervalSince(lastScrollKeyTime) >= 0.08 {
+                    if accumulatedScrollDeltaY > 0 {
+                        sendKey("KEYCODE_PAGE_DOWN")
+                    } else {
+                        sendKey("KEYCODE_PAGE_UP")
+                    }
+                    accumulatedScrollDeltaY = 0.0
+                    lastScrollKeyTime = now
+                    print("[KVM] Browser 2-finger scroll: \(accumulatedScrollDeltaY > 0 ? "PAGE_DOWN" : "PAGE_UP")")
+                }
+            }
+            
+            // Пропускаем обработку навигации и exit-порога ниже
+            let scrollCenter: CGPoint
+            switch activeEdge {
+            case .right:
+                scrollCenter = CGPoint(x: macWidth - (INITIAL_ZONE_WIDTH / 2.0), y: macHeight / 2.0)
+            case .left:
+                scrollCenter = CGPoint(x: INITIAL_ZONE_WIDTH / 2.0, y: macHeight / 2.0)
+            case .top:
+                scrollCenter = CGPoint(x: macWidth / 2.0, y: INITIAL_ZONE_WIDTH / 2.0)
+            }
+            CGWarpMouseCursorPosition(scrollCenter)
+            return
+        }
+        
+        // Сброс скролл-дельты при переходе к 1-пальцевой навигации
+        accumulatedScrollDeltaY = 0.0
+        
         // 1. Сначала обрабатываем горизонтальный свайп
         if abs(accumulatedX) >= swipeThreshold {
             let key = accumulatedX > 0 ? "KEYCODE_DPAD_RIGHT" : "KEYCODE_DPAD_LEFT"
@@ -1014,10 +1060,44 @@ class KVMView: NSView {
         CGWarpMouseCursorPosition(centerPoint)
     }
     
+    var mouseDownTime: Date? = nil       // Время начала клика
+    var longPressTimer: Timer? = nil     // Таймер для определения long press
+    var isLongPressActive = false        // Флаг: режим long press активирован
+    
     override func mouseDown(with event: NSEvent) {
         guard isActive else { return }
-        print("[KVM] Клик: Выбор (DPAD CENTER)")
-        sendKey("KEYCODE_DPAD_CENTER")
+        mouseDownTime = Date()
+        isLongPressActive = false
+        
+        // Через 1 секунду удержания → отправляем START_LONG DPAD_CENTER
+        longPressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            self.isLongPressActive = true
+            print("[KVM] Длинный клик: START_LONG DPAD_CENTER (вход в режим скроллинга)")
+            if let delegate = NSApp.delegate as? AppDelegate {
+                delegate.socketClient.send(cmd: "HOLD_START KEYCODE_DPAD_CENTER")
+            }
+        }
+    }
+    
+    override func mouseUp(with event: NSEvent) {
+        guard isActive else { return }
+        longPressTimer?.invalidate()
+        longPressTimer = nil
+        
+        if isLongPressActive {
+            // Отпускаем long press → END_LONG DPAD_CENTER
+            print("[KVM] Отпускание: END_LONG DPAD_CENTER")
+            if let delegate = NSApp.delegate as? AppDelegate {
+                delegate.socketClient.send(cmd: "HOLD_END KEYCODE_DPAD_CENTER")
+            }
+            isLongPressActive = false
+        } else {
+            // Короткий клик (<1 сек) → обычный DPAD_CENTER (выбор)
+            print("[KVM] Клик: Выбор (DPAD CENTER)")
+            sendKey("KEYCODE_DPAD_CENTER")
+        }
+        mouseDownTime = nil
     }
     
     override func rightMouseDown(with event: NSEvent) {
@@ -1030,29 +1110,40 @@ class KVMView: NSView {
         guard isActive else { return }
         
         let now = Date()
-        lastScrollGestureTime = now // Фиксируем время физического жеста скроллинга при каждом входящем событии прокрутки
+        lastScrollGestureTime = now
         
         accumulatedScrollY += Double(event.deltaY)
         
-        // Лимитируем максимальное накопление (не более 3 шагов), чтобы избежать "инерционного перелета"
-        // после того, как пользователь уже убрал пальцы с трекпада
-        let maxAccumulated = scrollThreshold * 3.0
+        // В браузере порог скроллинга ниже, т.к. deltaY маленькие (1-4 за событие)
+        let effectiveScrollThreshold = isBrowserActive ? 5.0 : scrollThreshold
+        let maxAccumulated = effectiveScrollThreshold * 3.0
         if accumulatedScrollY > maxAccumulated {
             accumulatedScrollY = maxAccumulated
         } else if accumulatedScrollY < -maxAccumulated {
             accumulatedScrollY = -maxAccumulated
         }
         
-        if abs(accumulatedScrollY) >= scrollThreshold {
+        if abs(accumulatedScrollY) >= effectiveScrollThreshold {
             // Мягкий кулдаун отправки команд прокрутки списков на ТВ (80 мс)
-            // Это идеальная частота для автоповтора скроллинга страниц
             if now.timeIntervalSince(lastScrollKeyTime) >= 0.08 {
-                if accumulatedScrollY > 0 {
-                    sendKey("KEYCODE_DPAD_UP")
-                    accumulatedScrollY -= scrollThreshold
+                if isBrowserActive {
+                    // Браузер: PAGE_UP/PAGE_DOWN скроллит страницу (а не перемещает фокус)
+                    if accumulatedScrollY > 0 {
+                        sendKey("KEYCODE_PAGE_UP")
+                        accumulatedScrollY -= effectiveScrollThreshold
+                    } else {
+                        sendKey("KEYCODE_PAGE_DOWN")
+                        accumulatedScrollY += effectiveScrollThreshold
+                    }
                 } else {
-                    sendKey("KEYCODE_DPAD_DOWN")
-                    accumulatedScrollY += scrollThreshold
+                    // Лаунчер/YouTube: DPAD_UP/DOWN перемещает фокус по списку
+                    if accumulatedScrollY > 0 {
+                        sendKey("KEYCODE_DPAD_UP")
+                        accumulatedScrollY -= scrollThreshold
+                    } else {
+                        sendKey("KEYCODE_DPAD_DOWN")
+                        accumulatedScrollY += scrollThreshold
+                    }
                 }
                 lastScrollKeyTime = now
             }
@@ -1065,6 +1156,7 @@ class KVMView: NSView {
         guard isActive else { return }
         let touches = event.touches(matching: .touching, in: self)
         let count = touches.count
+        currentTouchCount = count
         maxSimultaneousTouches = max(maxSimultaneousTouches, count)
         if count >= 3 && threeFingerTouchStartTime == nil {
             threeFingerTouchStartTime = Date()
@@ -1078,6 +1170,7 @@ class KVMView: NSView {
             return
         }
         let remaining = event.touches(matching: .touching, in: self)
+        currentTouchCount = remaining.count
         if remaining.count == 0 {
             // Все пальцы подняты
             if maxSimultaneousTouches == 3, let start = threeFingerTouchStartTime {
