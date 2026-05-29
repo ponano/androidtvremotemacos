@@ -42,40 +42,40 @@ struct Localization {
             "zh": "界面语言"
         ],
         "kvm_connected": [
-            "ru": "🟢 KVM: Подключен",
-            "en": "🟢 KVM: Connected",
-            "fr": "🟢 KVM: Connecté",
-            "it": "🟢 KVM: Connesso",
-            "de": "🟢 KVM: Verbunden",
-            "es": "🟢 KVM: Conectado",
-            "zh": "🟢 KVM: 已连接"
+            "ru": "🟢 Pano: Подключен",
+            "en": "🟢 Pano: Connected",
+            "fr": "🟢 Pano: Connecté",
+            "it": "🟢 Pano: Connesso",
+            "de": "🟢 Pano: Verbunden",
+            "es": "🟢 Pano: Conectado",
+            "zh": "🟢 Pano: 已连接"
         ],
         "kvm_enter_pin": [
-            "ru": "🟡 KVM: Введите PIN",
-            "en": "🟡 KVM: Enter PIN",
-            "fr": "🟡 KVM: Saisir le code PIN",
-            "it": "🟡 KVM: Inserisci PIN",
-            "de": "🟡 KVM: PIN eingeben",
-            "es": "🟡 KVM: Introducir PIN",
-            "zh": "🟡 KVM: 输入 PIN 码"
+            "ru": "🟡 Pano: Введите PIN",
+            "en": "🟡 Pano: Enter PIN",
+            "fr": "🟡 Pano: Saisir le code PIN",
+            "it": "🟡 Pano: Inserisci PIN",
+            "de": "🟡 Pano: PIN eingeben",
+            "es": "🟡 Pano: Introducir PIN",
+            "zh": "🟡 Pano: 输入 PIN 码"
         ],
         "kvm_connecting": [
-            "ru": "🟡 KVM: Подключение...",
-            "en": "🟡 KVM: Connecting...",
-            "fr": "🟡 KVM: Connexion...",
-            "it": "🟡 KVM: Connessione...",
-            "de": "🟡 KVM: Verbinden...",
-            "es": "🟡 KVM: Conectando...",
-            "zh": "🟡 KVM: 正在连接..."
+            "ru": "🟡 Pano: Подключение...",
+            "en": "🟡 Pano: Connecting...",
+            "fr": "🟡 Pano: Connexion...",
+            "it": "🟡 Pano: Connessione...",
+            "de": "🟡 Pano: Verbinden...",
+            "es": "🟡 Pano: Conectando...",
+            "zh": "🟡 Pano: 正在连接..."
         ],
         "kvm_disconnected": [
-            "ru": "🔴 KVM: Отключен",
-            "en": "🔴 KVM: Disconnected",
-            "fr": "🔴 KVM: Déconnecté",
-            "it": "🔴 KVM: Disconnesso",
-            "de": "🔴 KVM: Trennen",
-            "es": "🔴 KVM: Desconectado",
-            "zh": "🔴 KVM: 已断开"
+            "ru": "🔴 Pano: Отключен",
+            "en": "🔴 Pano: Disconnected",
+            "fr": "🔴 Pano: Déconnecté",
+            "it": "🔴 Pano: Disconnesso",
+            "de": "🔴 Pano: Trennen",
+            "es": "🔴 Pano: Desconectado",
+            "zh": "🔴 Pano: 已断开"
         ],
         "disconnect_tv": [
             "ru": "Отключить от ТВ",
@@ -240,13 +240,13 @@ struct Localization {
             "zh": "极慢"
         ],
         "exit_kvm": [
-            "ru": "Выйти из KVM",
-            "en": "Exit KVM",
-            "fr": "Quitter KVM",
-            "it": "Esci da KVM",
-            "de": "KVM beenden",
-            "es": "Salir de KVM",
-            "zh": "退出 KVM"
+            "ru": "Выйти из Pano",
+            "en": "Exit Pano",
+            "fr": "Quitter Pano",
+            "it": "Esci da Pano",
+            "de": "Pano beenden",
+            "es": "Salir de Pano",
+            "zh": "退出 Pano"
         ],
         "conflict_title": [
             "ru": "Конфликт подключений",
@@ -258,13 +258,13 @@ struct Localization {
             "zh": "连接冲突"
         ],
         "conflict_text": [
-            "ru": "Управление телевизором было перехвачено другим устройством (например, приложением Google TV на телефоне).\n\nАвтоматическое переподключение приостановлено во избежание конфликтов. Вы можете подключиться заново вручную через меню KVM после отключения другого пульта.",
-            "en": "TV control was intercepted by another device (e.g., Google TV app on your phone).\n\nAuto-reconnect is suspended to avoid conflicts. You can manually reconnect via the KVM menu after disconnecting the other remote.",
-            "fr": "Le contrôle de la TV a été intercepté par un autre appareil (ex. l'application Google TV sur le téléphone).\n\nLa reconnexion automatique est suspendue pour éviter les conflits. Vous pouvez vous reconnecter manuellement via le menu KVM après avoir déconnecté l'autre télécommande.",
-            "it": "Il controllo della TV è stato intercettato da un altro dispositivo (es. app Google TV sul telefono).\n\nLa riconnessione automatica è sospesa per evitare conflitti. Puoi riconnetterti manualmente tramite il menu KVM dopo aver disconnesso l'altro telecomando.",
-            "de": "Die TV-Steuerung wurde von einem anderen Gerät abgefangen (z. B. der Google TV-App auf Ihrem Telefon).\n\nDie automatische Wiederverbindung wurde vorübergehend ausgesetzt, um Konflikte zu vermeiden. Sie können nach dem Trennen der anderen Fernbedienung manuell eine neue Verbindung über das KVM-Menü herstellen.",
-            "es": "El control de la TV fue interceptado por otro dispositivo (ej. la aplicación Google TV en el teléfono).\n\nLa reconexión automática se suspende para evitar conflictos. Puede volver a conectarse manualmente a través del menú KVM después de desconectar el otro mando.",
-            "zh": "电视控制权已被其他设备抢占 (例如手机上的 Google TV 应用)。\n\n为避免冲突，已暂停自动重新连接。您可以在断开其他遥控器后，通过 KVM 菜单手动重新连接。"
+            "ru": "Управление телевизором было перехвачено другим устройством (например, приложением Google TV на телефоне).\n\nАвтоматическое переподключение приостановлено во избежание конфликтов. Вы можете подключиться заново вручную через меню Pano после отключения другого пульта.",
+            "en": "TV control was intercepted by another device (e.g., Google TV app on your phone).\n\nAuto-reconnect is suspended to avoid conflicts. You can manually reconnect via the Pano menu after disconnecting the other remote.",
+            "fr": "Le contrôle de la TV a été intercepté par un autre appareil (ex. l'application Google TV sur le téléphone).\n\nLa reconnexion automatique est suspendue pour éviter les conflits. Vous pouvez vous reconnecter manuellement via le menu Pano après avoir déconnecté l'autre télécommande.",
+            "it": "Il controllo della TV è stato intercettato da un altro dispositivo (es. app Google TV sul telefono).\n\nLa riconnessione automatica è sospesa per evitare conflitti. Puoi riconnetterti manualmente tramite il menu Pano dopo aver disconnesso l'altro telecomando.",
+            "de": "Die TV-Steuerung wurde von einem anderen Gerät abgefangen (z. B. der Google TV-App auf Ihrem Telefon).\n\nDie automatische Wiederverbindung wurde vorübergehend ausgesetzt, um Konflikte zu vermeiden. Sie können nach dem Trennen der anderen Fernbedienung manuell eine neue Verbindung über das Pano-Menü herstellen.",
+            "es": "El control de la TV fue interceptado por otro dispositivo (ej. la aplicación Google TV en el teléfono).\n\nLa reconexión automática se suspende para evitar conflictos. Puede volver a conectarse manualmente a través del menú Pano después de desconectar el otro mando.",
+            "zh": "电视控制权已被其他设备抢占 (例如手机上的 Google TV 应用)。\n\n为避免冲突，已暂停自动重新连接。您可以在断开其他遥控器后，通过 Pano 菜单手动重新连接。"
         ],
         "unpair_title": [
             "ru": "Разорвать сопряжение?",
@@ -357,13 +357,13 @@ struct Localization {
             "zh": "麦克风访问被拒绝"
         ],
         "denied_mic_text": [
-            "ru": "Пожалуйста, разрешите доступ к Микрофону и Распознаванию речи для tv_kvm в Системных настройках macOS в разделе Безопасность и Конфиденциальность.",
-            "en": "Please allow Microphone and Speech Recognition access for tv_kvm in macOS System Settings under Privacy & Security.",
-            "fr": "Veuillez autoriser l'accès au microphone et à la reconnaissance vocale pour tv_kvm dans les réglages système macOS sous Confidentialité et sécurité.",
-            "it": "Autorizza l'accesso al microfono e al riconoscimento vocale per tv_kvm nelle Impostazioni di sistema di macOS sotto Privacy e Sicurezza.",
-            "de": "Bitte erlauben Sie den Zugriff auf das Mikrofon und die Spracherkennung für tv_kvm in den macOS-Systemeinstellungen unter Datenschutz & Sicherheit.",
-            "es": "Por favor, permita el acceso al micrófono y al reconocimiento de voz para tv_kvm en la Configuración del sistema de macOS bajo Privacidad y Seguridad.",
-            "zh": "请在 macOS 系统设置的“隐私与安全性”中，允许 tv_kvm 访问麦克风和进行语音识别。"
+            "ru": "Пожалуйста, разрешите доступ к Микрофону и Распознаванию речи для Pano в Системных настройках macOS в разделе Безопасность и Конфиденциальность.",
+            "en": "Please allow Microphone and Speech Recognition access for Pano in macOS System Settings under Privacy & Security.",
+            "fr": "Veuillez autoriser l'accès au microphone et à la reconnaissance vocale pour Pano dans les réglages système macOS sous Confidentialité et sécurité.",
+            "it": "Autorizza l'accesso al microfono e al riconoscimento vocale per Pano nelle Impostazioni di sistema di macOS sotto Privacy e Sicurezza.",
+            "de": "Bitte erlauben Sie den Zugriff auf das Mikrofon und die Spracherkennung für Pano in den macOS-Systemeinstellungen unter Datenschutz & Sicherheit.",
+            "es": "Por favor, permita el acceso al micrófono y al reconocimiento de voz para Pano en la Configuración del sistema de macOS bajo Privacidad y Seguridad.",
+            "zh": "请在 macOS 系统设置的“隐私与安全性”中，允许 Pano 访问麦克风和进行语音识别。"
         ],
         "err_recognition_request_failed": [
             "ru": "Не удалось создать запрос распознавания.",
@@ -1457,6 +1457,73 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var wasKVMActiveBeforeInput = false
     var isTyping = false
     
+    var nodeProcess: Process?
+    
+    func getTVIP() -> String {
+        let bundlePath = Bundle.main.bundlePath
+        let parentDir = (bundlePath as NSString).deletingLastPathComponent
+        let scriptPath = "\(parentDir)/run_kvm.sh"
+        if let content = try? String(contentsOfFile: scriptPath, encoding: .utf8) {
+            let lines = content.components(separatedBy: .newlines)
+            for line in lines {
+                if line.hasPrefix("TV_IP=") {
+                    let parts = line.components(separatedBy: "=")
+                    if parts.count > 1 {
+                        let ip = parts[1].trimmingCharacters(in: CharacterSet(charactersIn: "\"'\n\r "))
+                        if !ip.isEmpty {
+                            return ip
+                        }
+                    }
+                }
+            }
+        }
+        return "192.168.31.67"
+    }
+    
+    func startNodeBridge() {
+        let bundlePath = Bundle.main.bundlePath
+        let parentDir = (bundlePath as NSString).deletingLastPathComponent
+        let bridgeScript = "\(parentDir)/tv_remote_bridge.js"
+        let tvIP = getTVIP()
+        
+        print("[Swift] Starting background Node.js bridge for IP: \(tvIP)...")
+        
+        let process = Process()
+        let nodePaths = ["/usr/local/bin/node", "/opt/homebrew/bin/node", "/usr/bin/node"]
+        var chosenPath = "/usr/bin/env"
+        var args = ["node", bridgeScript, tvIP]
+        
+        for path in nodePaths {
+            if FileManager.default.fileExists(atPath: path) {
+                chosenPath = path
+                args = [bridgeScript, tvIP]
+                break
+            }
+        }
+        
+        process.executableURL = URL(fileURLWithPath: chosenPath)
+        process.arguments = args
+        process.currentDirectoryURL = URL(fileURLWithPath: parentDir)
+        
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        
+        do {
+            try process.run()
+            self.nodeProcess = process
+            print("[Swift] Successfully launched Node.js bridge subprocess (PID: \(process.processIdentifier))")
+        } catch {
+            print("[Swift Error] Failed to launch Node.js bridge: \(error)")
+        }
+    }
+    
+    func stopNodeBridge() {
+        if let process = nodeProcess, process.isRunning {
+            process.terminate()
+            print("[Swift] Terminated background Node.js bridge.")
+        }
+    }
+    
     // HUD-справка по жестам
     var helpOverlayWindow: NSWindow?
     var helpDismissTimer: Timer?
@@ -1676,6 +1743,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("[Swift] applicationDidFinishLaunching started. Initializing window...")
         
+        // Автоматически запускаем Node.js-мост в фоновом режиме
+        startNodeBridge()
+        
         // Считываем сохраненную сторону KVM или берем по умолчанию .right
         var initialEdge: KVMEdge = .right
         if let savedRaw = UserDefaults.standard.string(forKey: "KVM_ActiveEdge"),
@@ -1831,7 +1901,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func terminate() {
         socketClient.send(cmd: "DISCONNECT")
         socketClient.disconnect()
+        stopNodeBridge()
         NSApp.terminate(nil)
+    }
+    
+    func applicationWillTerminate(_ notification: Notification) {
+        stopNodeBridge()
     }
     
     func updateStatusMenu(_ status: String) {

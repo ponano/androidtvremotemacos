@@ -1,0 +1,3 @@
+/* InfoPlist.strings (Russian) */
+NSMicrophoneUsageDescription = "Доступ к микрофону требуется для голосового ввода текста на ТВ.";
+NSSpeechRecognitionUsageDescription = "Распознавание речи требуется для преобразования вашего голоса в текст.";
