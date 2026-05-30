@@ -2,6 +2,7 @@ import Cocoa
 import Foundation
 import AppKit
 import Network
+import ServiceManagement
 import Speech
 import AVFoundation
 
@@ -380,6 +381,259 @@ struct Localization {
             "it": "Impossibile avviare il motore audio",
             "de": "Fehler beim Starten der Audio-Engine",
             "es": "Error al iniciar el motor de audio"
+        ],
+        "guide_title": [
+            "ru": "Добро пожаловать в Pano!",
+            "en": "Welcome to Pano!",
+            "fr": "Bienvenue dans Pano !",
+            "it": "Benvenuto in Pano!",
+            "de": "Willkommen bei Pano!",
+            "es": "¡Bienvenido a Pano!",
+            "zh": "欢迎使用 Pano！"
+        ],
+        "guide_subtitle": [
+            "ru": "Управляйте Android TV прямо с трекпада Mac",
+            "en": "Control your Android TV directly from your Mac trackpad",
+            "fr": "Contrôlez votre Android TV directement depuis le trackpad de votre Mac",
+            "it": "Controlla la tua Android TV direttamente dal trackpad del Mac",
+            "de": "Steuern Sie Ihren Android TV direkt über das Mac-Trackpad",
+            "es": "Controla tu Android TV directamente desde el trackpad de tu Mac",
+            "zh": "直接通过 Mac 触控板控制你的 Android TV"
+        ],
+        "guide_how_title": [
+            "ru": "Как это работает",
+            "en": "How It Works",
+            "fr": "Comment ça marche",
+            "it": "Come funziona",
+            "de": "So funktioniert es",
+            "es": "Cómo funciona",
+            "zh": "工作原理"
+        ],
+        "guide_how_text": [
+            "ru": "Переместите курсор к краю экрана (по умолчанию — правый) для перехода в режим TV. Управляйте телевизором жестами трекпада, как пультом.",
+            "en": "Move your cursor to the screen edge (default: right) to enter TV mode. Control the TV with trackpad gestures, like a remote.",
+            "fr": "Déplacez le curseur vers le bord de l'écran (par défaut : droite) pour passer en mode TV. Contrôlez la TV avec les gestes du trackpad.",
+            "it": "Sposta il cursore verso il bordo dello schermo (predefinito: destro) per entrare in modalità TV. Controlla la TV con i gesti del trackpad.",
+            "de": "Bewegen Sie den Cursor zum Bildschirmrand (Standard: rechts), um den TV-Modus zu aktivieren. Steuern Sie den TV mit Trackpad-Gesten.",
+            "es": "Mueve el cursor al borde de la pantalla (por defecto: derecho) para entrar en el modo TV. Controla la TV con gestos del trackpad.",
+            "zh": "将光标移动到屏幕边缘（默认：右侧）进入电视模式。使用触控板手势控制电视，如同遥控器。"
+        ],
+        "guide_gestures_title": [
+            "ru": "Жесты управления",
+            "en": "Control Gestures",
+            "fr": "Gestes de contrôle",
+            "it": "Gesti di controllo",
+            "de": "Steuergesten",
+            "es": "Gestos de control",
+            "zh": "控制手势"
+        ],
+        "guide_g1_action": [
+            "ru": "Свайп 1 пальцем",
+            "en": "1-finger swipe",
+            "fr": "Glisser à 1 doigt",
+            "it": "Scorrimento a 1 dito",
+            "de": "1-Finger-Wischen",
+            "es": "Deslizar con 1 dedo",
+            "zh": "单指轻扫"
+        ],
+        "guide_g1_desc": [
+            "ru": "Навигация (стрелки)",
+            "en": "Navigation (arrows)",
+            "fr": "Navigation (flèches)",
+            "it": "Navigazione (frecce)",
+            "de": "Navigation (Pfeile)",
+            "es": "Navegación (flechas)",
+            "zh": "导航（方向键）"
+        ],
+        "guide_g2_action": [
+            "ru": "Клик (короткий)",
+            "en": "Click (short)",
+            "fr": "Clic (court)",
+            "it": "Clic (breve)",
+            "de": "Klick (kurz)",
+            "es": "Clic (corto)",
+            "zh": "单击（短按）"
+        ],
+        "guide_g2_desc": [
+            "ru": "Выбор / OK",
+            "en": "Select / OK",
+            "fr": "Sélectionner / OK",
+            "it": "Seleziona / OK",
+            "de": "Auswählen / OK",
+            "es": "Seleccionar / OK",
+            "zh": "选择 / 确认"
+        ],
+        "guide_g3_action": [
+            "ru": "Клик (зажать ≥1с)",
+            "en": "Click (hold ≥1s)",
+            "fr": "Clic (maintenir ≥1s)",
+            "it": "Clic (tenere ≥1s)",
+            "de": "Klick (halten ≥1s)",
+            "es": "Clic (mantener ≥1s)",
+            "zh": "长按（≥1秒）"
+        ],
+        "guide_g3_desc": [
+            "ru": "Режим скроллинга",
+            "en": "Scrolling mode",
+            "fr": "Mode défilement",
+            "it": "Modalità scorrimento",
+            "de": "Scroll-Modus",
+            "es": "Modo desplazamiento",
+            "zh": "滚动模式"
+        ],
+        "guide_g4_action": [
+            "ru": "Клик 2 пальцами",
+            "en": "2-finger click",
+            "fr": "Clic à 2 doigts",
+            "it": "Clic a 2 dita",
+            "de": "2-Finger-Klick",
+            "es": "Clic con 2 dedos",
+            "zh": "双指点按"
+        ],
+        "guide_g4_desc": [
+            "ru": "Назад",
+            "en": "Back",
+            "fr": "Retour",
+            "it": "Indietro",
+            "de": "Zurück",
+            "es": "Atrás",
+            "zh": "返回"
+        ],
+        "guide_g5_action": [
+            "ru": "Тап 3 пальцами",
+            "en": "3-finger tap",
+            "fr": "Tap à 3 doigts",
+            "it": "Tap a 3 dita",
+            "de": "3-Finger-Tap",
+            "es": "Tocar con 3 dedos",
+            "zh": "三指轻触"
+        ],
+        "guide_g5_desc": [
+            "ru": "Home",
+            "en": "Home",
+            "fr": "Accueil",
+            "it": "Home",
+            "de": "Home",
+            "es": "Inicio",
+            "zh": "主屏幕"
+        ],
+        "guide_g6_action": [
+            "ru": "Свайп к краю / Esc",
+            "en": "Swipe to edge / Esc",
+            "fr": "Glisser vers le bord / Échap",
+            "it": "Scorrere verso il bordo / Esc",
+            "de": "Zum Rand wischen / Esc",
+            "es": "Deslizar al borde / Esc",
+            "zh": "滑到边缘 / Esc"
+        ],
+        "guide_g6_desc": [
+            "ru": "Выход на Mac",
+            "en": "Return to Mac",
+            "fr": "Retour au Mac",
+            "it": "Torna al Mac",
+            "de": "Zurück zum Mac",
+            "es": "Volver al Mac",
+            "zh": "返回 Mac"
+        ],
+        "guide_tip": [
+            "ru": "💡 Используйте Ctrl+Shift+T для ввода текста на ТВ",
+            "en": "💡 Use Ctrl+Shift+T to type text on the TV",
+            "fr": "💡 Utilisez Ctrl+Shift+T pour saisir du texte sur la TV",
+            "it": "💡 Usa Ctrl+Shift+T per digitare testo sulla TV",
+            "de": "💡 Drücken Sie Strg+Umschalt+T, um Text auf dem TV einzugeben",
+            "es": "💡 Usa Ctrl+Shift+T para escribir texto en la TV",
+            "zh": "💡 使用 Ctrl+Shift+T 在电视上输入文字"
+        ],
+        "guide_dont_show": [
+            "ru": "Не показывать при запуске",
+            "en": "Don't show on startup",
+            "fr": "Ne plus afficher au démarrage",
+            "it": "Non mostrare all'avvio",
+            "de": "Beim Start nicht anzeigen",
+            "es": "No mostrar al iniciar",
+            "zh": "启动时不再显示"
+        ],
+        "guide_start_btn": [
+            "ru": "Начать",
+            "en": "Get Started",
+            "fr": "Commencer",
+            "it": "Inizia",
+            "de": "Los geht's",
+            "es": "Empezar",
+            "zh": "开始使用"
+        ],
+        "guide_menu_item": [
+            "ru": "📖 Инструкция",
+            "en": "📖 User Guide",
+            "fr": "📖 Guide d'utilisation",
+            "it": "📖 Guida utente",
+            "de": "📖 Benutzerhandbuch",
+            "es": "📖 Guía de usuario",
+            "zh": "📖 使用指南"
+        ],
+        "launch_at_login": [
+            "ru": "Запускать при входе в систему",
+            "en": "Launch at Login",
+            "fr": "Lancer au démarrage",
+            "it": "Avvia al login",
+            "de": "Beim Login starten",
+            "es": "Iniciar al iniciar sesión",
+            "zh": "登录时启动"
+        ],
+        // === Устойчивое поведение ===
+        "tv_not_found": [
+            "ru": "📵 ТВ не найден",
+            "en": "📵 TV not found",
+            "fr": "📵 TV introuvable",
+            "it": "📵 TV non trovato",
+            "de": "📵 TV nicht gefunden",
+            "es": "📵 TV no encontrado",
+            "zh": "📵 未找到电视"
+        ],
+        "tv_waiting": [
+            "ru": "Ожидание ТВ...",
+            "en": "Waiting for TV...",
+            "fr": "En attente du TV...",
+            "it": "In attesa del TV...",
+            "de": "Warte auf TV...",
+            "es": "Esperando TV...",
+            "zh": "等待电视..."
+        ],
+        "bridge_stopped": [
+            "ru": "⚠️ Мост остановлен",
+            "en": "⚠️ Bridge stopped",
+            "fr": "⚠️ Pont arrêté",
+            "it": "⚠️ Ponte arrestato",
+            "de": "⚠️ Bridge gestoppt",
+            "es": "⚠️ Puente detenido",
+            "zh": "⚠️ 桥接已停止"
+        ],
+        "bridge_restart_failed": [
+            "ru": "Не удалось перезапустить мост. Перезапустите приложение.",
+            "en": "Failed to restart bridge. Please restart the app.",
+            "fr": "Échec du redémarrage du pont. Veuillez relancer l'app.",
+            "it": "Impossibile riavviare il ponte. Riavvia l'app.",
+            "de": "Bridge-Neustart fehlgeschlagen. Bitte App neu starten.",
+            "es": "No se pudo reiniciar el puente. Reinicie la app.",
+            "zh": "桥接重启失败，请重新启动应用。"
+        ],
+        "reconnect_now": [
+            "ru": "🔄 Переподключить сейчас",
+            "en": "🔄 Reconnect now",
+            "fr": "🔄 Reconnecter maintenant",
+            "it": "🔄 Riconnetti ora",
+            "de": "🔄 Jetzt neu verbinden",
+            "es": "🔄 Reconectar ahora",
+            "zh": "🔄 立即重新连接"
+        ],
+        "tv_unreachable_hint": [
+            "ru": "Убедитесь, что ТВ включен и в одной Wi-Fi сети",
+            "en": "Make sure the TV is on and on the same Wi-Fi network",
+            "fr": "Vérifiez que le TV est allumé et sur le même réseau Wi-Fi",
+            "it": "Assicurati che il TV sia acceso e sulla stessa rete Wi-Fi",
+            "de": "Stellen Sie sicher, dass der TV eingeschaltet und im selben WLAN ist",
+            "es": "Asegúrese de que el TV esté encendido y en la misma red Wi-Fi",
+            "zh": "请确保电视已开启并连接到同一Wi-Fi网络"
         ]
     ]
 }
@@ -618,42 +872,75 @@ class SocketClient {
     var onImeUpdate: ((String) -> Void)?
     var onImeHide: (() -> Void)?
     var onAppChange: ((String) -> Void)?
+    private var isReconnecting = false
     
     func connect() {
+        queue.async { [weak self] in
+            self?._connect()
+        }
+    }
+    
+    private func _connect() {
+        // Очищаем старое подключение если есть
+        if let old = connection {
+            old.stateUpdateHandler = nil
+            old.cancel()
+            connection = nil
+        }
+        
         print("[Swift Socket] connect() called, starting NWConnection to 127.0.0.1:12345...")
         let host = NWEndpoint.Host("127.0.0.1")
         let port = NWEndpoint.Port(integerLiteral: 12345)
         
-        connection = NWConnection(host: host, port: port, using: .tcp)
-        connection?.stateUpdateHandler = { [weak self] state in
+        let newConnection = NWConnection(host: host, port: port, using: .tcp)
+        connection = newConnection
+        isReconnecting = false
+        
+        newConnection.stateUpdateHandler = { [weak self] state in
             switch state {
             case .ready:
                 print("[Swift Socket] Connected to local TV KVM bridge.")
                 self?.receive()
             case .failed(let error):
                 print("[Swift Socket] Connection failed: \(error). Reconnecting...")
-                self?.reconnect()
+                self?.scheduleReconnect()
             case .waiting(let error):
                 print("[Swift Socket] Connection waiting: \(error). Retrying in 3 seconds...")
-                self?.reconnect()
+                self?.scheduleReconnect()
             case .cancelled:
                 print("[Swift Socket] Connection cancelled.")
             default:
                 break
             }
         }
-        connection?.start(queue: queue)
+        newConnection.start(queue: queue)
     }
     
     func disconnect() {
-        connection?.cancel()
-        connection = nil
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.isReconnecting = false
+            if let conn = self.connection {
+                conn.stateUpdateHandler = nil
+                conn.cancel()
+                self.connection = nil
+            }
+        }
     }
     
-    func reconnect() {
-        disconnect()
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            self?.connect()
+    private func scheduleReconnect() {
+        guard !isReconnecting else { return }
+        isReconnecting = true
+        
+        // Очищаем старый handler и cancel
+        if let conn = connection {
+            conn.stateUpdateHandler = nil
+            conn.cancel()
+            connection = nil
+        }
+        
+        queue.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            self?._connect()
         }
     }
     
@@ -1458,6 +1745,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var isTyping = false
     
     var nodeProcess: Process?
+    var nodeRestartCount = 0          // Счётчик перезапусков Node.js моста
+    let maxNodeRestarts = 3           // Максимум автоперезапусков
+    var isBridgeAlive = false         // Жив ли Node.js мост
+    var blinkTimer: Timer?            // Таймер мигания при подключении
+    var blinkVisible = true           // Текущее состояние мигания
     
     func getTVIP() -> String {
         let bundlePath = Bundle.main.bundlePath
@@ -1481,47 +1773,155 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func startNodeBridge() {
+        // Сначала подчищаем возможных сирот от предыдущего запуска
+        cleanupOrphanedBridge()
+        
+        // Проверяем, не запущен ли уже мост (run_kvm.sh мог запустить его отдельно)
+        if let existingProcess = nodeProcess, existingProcess.isRunning {
+            print("[Swift] Node.js bridge already running (PID: \(existingProcess.processIdentifier)), skipping launch.")
+            isBridgeAlive = true
+            return
+        }
+        
         let bundlePath = Bundle.main.bundlePath
         let parentDir = (bundlePath as NSString).deletingLastPathComponent
-        let bridgeScript = "\(parentDir)/tv_remote_bridge.js"
-        let tvIP = getTVIP()
+        let currentDir = FileManager.default.currentDirectoryPath
         
+        // Ищем bridge-скрипт в нескольких местах (приоритет):
+        let searchPaths = [
+            // 1. Внутри .app бандла (для запуска из Launchpad / /Applications)
+            "\(bundlePath)/Contents/Resources/bridge/tv_remote_bridge.js",
+            // 2. Рядом с .app бандлом (для запуска из MacTV_KVM/tv_kvm.app)
+            "\(parentDir)/tv_remote_bridge.js",
+            // 3. В текущей рабочей директории (для запуска ./tv_kvm напрямую)
+            "\(currentDir)/tv_remote_bridge.js",
+        ]
+        
+        var bridgeScript: String? = nil
+        for path in searchPaths {
+            if FileManager.default.fileExists(atPath: path) {
+                bridgeScript = path
+                break
+            }
+        }
+        
+        // Проверяем, найден ли bridge-скрипт
+        guard let foundScript = bridgeScript else {
+            print("[Swift Error] Bridge script not found! Searched paths:")
+            for path in searchPaths {
+                print("[Swift Error]   - \(path)")
+            }
+            return
+        }
+        
+        let tvIP = getTVIP()
+        let workDir = (foundScript as NSString).deletingLastPathComponent
+        
+        print("[Swift] Bundle path: \(bundlePath)")
+        print("[Swift] Bridge script: \(foundScript)")
+        print("[Swift] Working directory: \(workDir)")
         print("[Swift] Starting background Node.js bridge for IP: \(tvIP)...")
         
         let process = Process()
         let nodePaths = ["/usr/local/bin/node", "/opt/homebrew/bin/node", "/usr/bin/node"]
         var chosenPath = "/usr/bin/env"
-        var args = ["node", bridgeScript, tvIP]
+        var args = ["node", foundScript, tvIP]
         
         for path in nodePaths {
             if FileManager.default.fileExists(atPath: path) {
                 chosenPath = path
-                args = [bridgeScript, tvIP]
+                args = [foundScript, tvIP]
                 break
             }
         }
         
         process.executableURL = URL(fileURLWithPath: chosenPath)
         process.arguments = args
-        process.currentDirectoryURL = URL(fileURLWithPath: parentDir)
+        process.currentDirectoryURL = URL(fileURLWithPath: workDir)
         
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         
+        // Мониторинг завершения Node.js процесса — автоперезапуск при крахе
+        process.terminationHandler = { [weak self] terminatedProcess in
+            guard let self = self else { return }
+            let exitCode = terminatedProcess.terminationStatus
+            let reason = terminatedProcess.terminationReason
+            
+            print("[Swift] Node.js bridge terminated (exit code: \(exitCode), reason: \(reason.rawValue))")
+            self.isBridgeAlive = false
+            
+            // Если завершение было не по нашей инициативе (не .exit с кодом 0)
+            if reason == .uncaughtSignal || exitCode != 0 {
+                DispatchQueue.main.async {
+                    if self.nodeRestartCount < self.maxNodeRestarts {
+                        self.nodeRestartCount += 1
+                        print("[Swift] Auto-restarting Node.js bridge (attempt \(self.nodeRestartCount)/\(self.maxNodeRestarts))...")
+                        
+                        // Задержка перед перезапуском
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+                            self?.startNodeBridge()
+                            // Переподключить сокет после перезапуска моста
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                                self?.socketClient.connect()
+                            }
+                        }
+                    } else {
+                        print("[Swift Error] Max Node.js bridge restart attempts reached (\(self.maxNodeRestarts)).")
+                        self.updateStatusMenu("BRIDGE_DEAD")
+                    }
+                }
+            }
+        }
+        
         do {
             try process.run()
             self.nodeProcess = process
+            self.isBridgeAlive = true
             print("[Swift] Successfully launched Node.js bridge subprocess (PID: \(process.processIdentifier))")
         } catch {
             print("[Swift Error] Failed to launch Node.js bridge: \(error)")
+            self.isBridgeAlive = false
         }
     }
     
     func stopNodeBridge() {
         if let process = nodeProcess, process.isRunning {
-            process.terminate()
-            print("[Swift] Terminated background Node.js bridge.")
+            process.terminationHandler = nil  // Отключаем автоперезапуск
+            process.terminate()  // SIGTERM → graceful shutdown в Node.js
+            print("[Swift] Sent SIGTERM to Node.js bridge (PID: \(process.processIdentifier)). Waiting for exit...")
+            
+            // Ждём до 3 секунд, пока процесс завершится
+            let deadline = Date().addingTimeInterval(3.0)
+            while process.isRunning && Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            
+            // Если процесс всё ещё жив — убиваем принудительно
+            if process.isRunning {
+                print("[Swift] Node.js bridge did not exit in time. Sending SIGKILL...")
+                kill(process.processIdentifier, SIGKILL)
+                process.waitUntilExit()
+            }
+            
+            print("[Swift] Node.js bridge terminated successfully.")
         }
+        nodeProcess = nil
+        isBridgeAlive = false
+        
+        // Подчищаем возможных сирот на порту 12345
+        cleanupOrphanedBridge()
+    }
+    
+    /// Убивает любые процессы, занимающие порт 12345 (защита от зависших экземпляров моста)
+    func cleanupOrphanedBridge() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        task.arguments = ["-c", "lsof -ti :12345 | xargs kill -9 2>/dev/null; exit 0"]
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        try? task.run()
+        task.waitUntilExit()
     }
     
     // HUD-справка по жестам
@@ -1644,6 +2044,318 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         })
     }
     
+    // Всплывающее окно-инструкция при первом запуске
+    var welcomeGuideWindow: NSWindow?
+    
+    func showWelcomeGuide() {
+        // Если окно уже открыто — выносим на передний план
+        if let existingWindow = welcomeGuideWindow {
+            existingWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        
+        let windowWidth: CGFloat = 480.0
+        let pad: CGFloat = 30.0              // Горизонтальные отступы
+        let contentWidth = windowWidth - pad * 2  // Ширина контента
+        let cornerRadius: CGFloat = 20.0
+        
+        // ===== Динамическое измерение высоты текстовых блоков =====
+        
+        // Подзаголовок
+        let subtitleFont = NSFont.systemFont(ofSize: 12, weight: .regular)
+        let subtitleStr = Localization.get("guide_subtitle")
+        let subtitleAttr = NSAttributedString(string: subtitleStr, attributes: [.font: subtitleFont])
+        let subtitleHeight = ceil(subtitleAttr.boundingRect(
+            with: NSSize(width: contentWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        ).height) + 4.0
+        
+        // Текст «Как это работает»
+        let howFont = NSFont.systemFont(ofSize: 11.5, weight: .regular)
+        let howStr = Localization.get("guide_how_text")
+        let howAttr = NSAttributedString(string: howStr, attributes: [.font: howFont])
+        let howTextHeight = ceil(howAttr.boundingRect(
+            with: NSSize(width: contentWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        ).height) + 6.0
+        
+        // Подсказка (Tip)
+        let tipFont = NSFont.systemFont(ofSize: 11, weight: .medium)
+        let tipStr = Localization.get("guide_tip")
+        let tipAttr = NSAttributedString(string: tipStr, attributes: [.font: tipFont])
+        let tipHeight = ceil(tipAttr.boundingRect(
+            with: NSSize(width: contentWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        ).height) + 4.0
+        
+        // ===== Вычисляем общую высоту окна =====
+        let iconH: CGFloat = 48.0
+        let titleH: CGFloat = 28.0
+        let sectionH: CGFloat = 16.0
+        let rowH: CGFloat = 28.0
+        let rowCount: CGFloat = 6.0
+        let checkH: CGFloat = 18.0
+        let btnH: CGFloat = 36.0
+        
+        let windowHeight: CGFloat =
+            40.0 +            // Верхний отступ
+            iconH + 10.0 +   // Иконка + отступ
+            titleH + 8.0 +   // Заголовок + отступ
+            subtitleHeight + 16.0 +  // Подзаголовок + отступ
+            1.0 + 14.0 +     // Разделитель + отступ
+            sectionH + 6.0 + // «Как это работает» заголовок + отступ
+            howTextHeight + 14.0 +   // Описание + отступ
+            sectionH + 8.0 + // «Жесты» заголовок + отступ
+            (rowH * rowCount) + 10.0 +  // Таблица жестов + отступ
+            tipHeight + 14.0 +  // Подсказка + отступ
+            1.0 + 14.0 +     // Разделитель + отступ
+            checkH + 18.0 +  // Чекбокс + отступ
+            btnH +            // Кнопка
+            28.0              // Нижний отступ
+        
+        // ===== Создаём окно =====
+        let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let x = (screenFrame.width - windowWidth) / 2.0 + screenFrame.origin.x
+        let y = (screenFrame.height - windowHeight) / 2.0 + screenFrame.origin.y
+        let frame = NSRect(x: x, y: y, width: windowWidth, height: windowHeight)
+        
+        let guideWindow = NSWindow(
+            contentRect: frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        guideWindow.isOpaque = false
+        guideWindow.backgroundColor = .clear
+        guideWindow.hasShadow = true
+        guideWindow.level = .floating
+        guideWindow.alphaValue = 0.0
+        
+        // Glassmorphism фон с нативной маской скругления (без артефактов углов)
+        let effectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight))
+        effectView.material = .hudWindow
+        effectView.blendingMode = .behindWindow
+        effectView.state = .active
+        effectView.wantsLayer = true
+        
+        // Нативный macOS-способ скругления NSVisualEffectView через maskImage
+        let edgeLength = 2.0 * cornerRadius + 1.0
+        let maskImg = NSImage(size: NSSize(width: edgeLength, height: edgeLength), flipped: false) { rect in
+            let bezierPath = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
+            NSColor.black.set()
+            bezierPath.fill()
+            return true
+        }
+        maskImg.capInsets = NSEdgeInsets(top: cornerRadius, left: cornerRadius, bottom: cornerRadius, right: cornerRadius)
+        maskImg.resizingMode = .stretch
+        effectView.maskImage = maskImg
+        
+        guideWindow.contentView = effectView
+        
+        // ===== Layout: сверху вниз, currentY считает от верха окна =====
+        var currentY = windowHeight - 40.0
+        
+        // — Иконка приложения —
+        let iconView = NSImageView(frame: NSRect(x: (windowWidth - iconH) / 2.0, y: currentY - iconH, width: iconH, height: iconH))
+        if let appIcon = NSImage(named: NSImage.applicationIconName) {
+            iconView.image = appIcon
+        }
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+        effectView.addSubview(iconView)
+        currentY -= iconH + 10.0
+        
+        // — Заголовок —
+        let titleLabel = NSTextField(labelWithString: Localization.get("guide_title"))
+        titleLabel.frame = NSRect(x: 20, y: currentY - titleH, width: windowWidth - 40, height: titleH)
+        titleLabel.font = NSFont.systemFont(ofSize: 22, weight: .bold)
+        titleLabel.textColor = .white
+        titleLabel.alignment = .center
+        effectView.addSubview(titleLabel)
+        currentY -= titleH + 8.0
+        
+        // — Подзаголовок —
+        let subtitleLabel = NSTextField(wrappingLabelWithString: subtitleStr)
+        subtitleLabel.frame = NSRect(x: pad, y: currentY - subtitleHeight, width: contentWidth, height: subtitleHeight)
+        subtitleLabel.font = subtitleFont
+        subtitleLabel.textColor = NSColor(white: 1.0, alpha: 0.55)
+        subtitleLabel.alignment = .center
+        subtitleLabel.maximumNumberOfLines = 0
+        subtitleLabel.lineBreakMode = .byWordWrapping
+        effectView.addSubview(subtitleLabel)
+        currentY -= subtitleHeight + 16.0
+        
+        // — Разделитель 1 —
+        let sep1 = NSBox(frame: NSRect(x: pad, y: currentY, width: contentWidth, height: 1))
+        sep1.boxType = .separator
+        effectView.addSubview(sep1)
+        currentY -= 14.0
+        
+        // — Заголовок секции «Как это работает» —
+        let howTitle = NSTextField(labelWithString: Localization.get("guide_how_title"))
+        howTitle.frame = NSRect(x: pad, y: currentY - sectionH, width: contentWidth, height: sectionH)
+        howTitle.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        howTitle.textColor = NSColor(calibratedRed: 0.4, green: 0.85, blue: 1.0, alpha: 1.0)
+        howTitle.alignment = .left
+        effectView.addSubview(howTitle)
+        currentY -= sectionH + 6.0
+        
+        // — Текст описания (динамическая высота) —
+        let howText = NSTextField(wrappingLabelWithString: howStr)
+        howText.frame = NSRect(x: pad, y: currentY - howTextHeight, width: contentWidth, height: howTextHeight)
+        howText.font = howFont
+        howText.textColor = NSColor(white: 1.0, alpha: 0.78)
+        howText.alignment = .left
+        howText.maximumNumberOfLines = 0
+        howText.lineBreakMode = .byWordWrapping
+        effectView.addSubview(howText)
+        currentY -= howTextHeight + 14.0
+        
+        // — Заголовок секции «Жесты управления» —
+        let gesturesTitle = NSTextField(labelWithString: Localization.get("guide_gestures_title"))
+        gesturesTitle.frame = NSRect(x: pad, y: currentY - sectionH, width: contentWidth, height: sectionH)
+        gesturesTitle.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        gesturesTitle.textColor = NSColor(calibratedRed: 0.4, green: 0.85, blue: 1.0, alpha: 1.0)
+        gesturesTitle.alignment = .left
+        effectView.addSubview(gesturesTitle)
+        currentY -= sectionH + 8.0
+        
+        // — Таблица жестов —
+        let gestures: [(String, String, String)] = [
+            ("☝️", Localization.get("guide_g1_action"), Localization.get("guide_g1_desc")),
+            ("👆", Localization.get("guide_g2_action"), Localization.get("guide_g2_desc")),
+            ("👆", Localization.get("guide_g3_action"), Localization.get("guide_g3_desc")),
+            ("✌️", Localization.get("guide_g4_action"), Localization.get("guide_g4_desc")),
+            ("🤟", Localization.get("guide_g5_action"), Localization.get("guide_g5_desc")),
+            ("⬅️", Localization.get("guide_g6_action"), Localization.get("guide_g6_desc")),
+        ]
+        
+        for (i, gesture) in gestures.enumerated() {
+            let rowY = currentY - CGFloat(i) * rowH - rowH
+            
+            // Чередующийся фон строк
+            if i % 2 == 0 {
+                let rowBg = NSView(frame: NSRect(x: 24, y: rowY - 2, width: windowWidth - 48, height: rowH))
+                rowBg.wantsLayer = true
+                rowBg.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.04).cgColor
+                rowBg.layer?.cornerRadius = 6.0
+                effectView.addSubview(rowBg)
+            }
+            
+            let emojiLabel = NSTextField(labelWithString: gesture.0)
+            emojiLabel.frame = NSRect(x: 32, y: rowY, width: 28, height: 22)
+            emojiLabel.font = NSFont.systemFont(ofSize: 14)
+            effectView.addSubview(emojiLabel)
+            
+            let actionLabel = NSTextField(labelWithString: gesture.1)
+            actionLabel.frame = NSRect(x: 64, y: rowY, width: 200, height: 22)
+            actionLabel.font = NSFont.systemFont(ofSize: 12.5)
+            actionLabel.textColor = NSColor.white.withAlphaComponent(0.9)
+            effectView.addSubview(actionLabel)
+            
+            let descLabel = NSTextField(labelWithString: gesture.2)
+            descLabel.frame = NSRect(x: 260, y: rowY, width: windowWidth - 290, height: 22)
+            descLabel.font = NSFont.systemFont(ofSize: 12.5, weight: .medium)
+            descLabel.textColor = NSColor(calibratedRed: 0.4, green: 0.85, blue: 1.0, alpha: 1.0)
+            descLabel.alignment = .right
+            effectView.addSubview(descLabel)
+        }
+        currentY -= CGFloat(gestures.count) * rowH + 10.0
+        
+        // — Подсказка (Tip) —
+        let tipLabel = NSTextField(wrappingLabelWithString: tipStr)
+        tipLabel.frame = NSRect(x: pad, y: currentY - tipHeight, width: contentWidth, height: tipHeight)
+        tipLabel.font = tipFont
+        tipLabel.textColor = NSColor(calibratedRed: 1.0, green: 0.85, blue: 0.35, alpha: 0.85)
+        tipLabel.alignment = .center
+        tipLabel.maximumNumberOfLines = 0
+        tipLabel.lineBreakMode = .byWordWrapping
+        effectView.addSubview(tipLabel)
+        currentY -= tipHeight + 14.0
+        
+        // — Разделитель 2 —
+        let sep2 = NSBox(frame: NSRect(x: pad, y: currentY, width: contentWidth, height: 1))
+        sep2.boxType = .separator
+        effectView.addSubview(sep2)
+        currentY -= 14.0
+        
+        // — Чекбокс «Не показывать при запуске» —
+        let checkbox = NSButton(checkboxWithTitle: Localization.get("guide_dont_show"), target: nil, action: nil)
+        checkbox.frame = NSRect(x: pad, y: currentY - checkH, width: 300, height: checkH)
+        checkbox.state = UserDefaults.standard.bool(forKey: "KVM_HideGuideOnStartup") ? .on : .off
+        let checkboxCell = checkbox.cell as? NSButtonCell
+        checkboxCell?.attributedTitle = NSAttributedString(
+            string: Localization.get("guide_dont_show"),
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11.5),
+                .foregroundColor: NSColor(white: 1.0, alpha: 0.6)
+            ]
+        )
+        checkbox.tag = 9999
+        effectView.addSubview(checkbox)
+        currentY -= checkH + 18.0
+        
+        // — Кнопка «Начать» —
+        let buttonWidth: CGFloat = 180.0
+        let buttonX = (windowWidth - buttonWidth) / 2.0
+        let startButton = NSButton(frame: NSRect(x: buttonX, y: currentY - btnH, width: buttonWidth, height: btnH))
+        startButton.wantsLayer = true
+        startButton.isBordered = false
+        startButton.layer?.cornerRadius = btnH / 2.0
+        startButton.layer?.backgroundColor = NSColor(calibratedRed: 0.2, green: 0.6, blue: 1.0, alpha: 0.85).cgColor
+        let btnCell = startButton.cell as? NSButtonCell
+        btnCell?.attributedTitle = NSAttributedString(
+            string: Localization.get("guide_start_btn"),
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
+                .foregroundColor: NSColor.white
+            ]
+        )
+        startButton.target = self
+        startButton.action = #selector(dismissWelcomeGuide(_:))
+        effectView.addSubview(startButton)
+        
+        self.welcomeGuideWindow = guideWindow
+        
+        // Показываем с анимацией
+        NSApp.setActivationPolicy(.regular)
+        guideWindow.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.35
+            guideWindow.animator().alphaValue = 1.0
+        }
+    }
+    
+    @objc func dismissWelcomeGuide(_ sender: Any?) {
+        guard let guideWindow = self.welcomeGuideWindow else { return }
+        
+        // Ищем чекбокс по tag в содержимом окна
+        if let effectView = guideWindow.contentView {
+            for subview in effectView.subviews {
+                if let checkbox = subview as? NSButton, checkbox.tag == 9999 {
+                    UserDefaults.standard.set(checkbox.state == .on, forKey: "KVM_HideGuideOnStartup")
+                    break
+                }
+            }
+        }
+        
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.25
+            guideWindow.animator().alphaValue = 0.0
+        }, completionHandler: { [weak self] in
+            guideWindow.orderOut(nil)
+            self?.welcomeGuideWindow = nil
+            NSApp.setActivationPolicy(.accessory)
+        })
+    }
+    
+    @objc func showWelcomeGuideFromMenu() {
+        showWelcomeGuide()
+    }
+
+    
     var kvmView: KVMView? {
         return window?.contentView as? KVMView
     }
@@ -1711,6 +2423,98 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         kvmView?.swipeThreshold = value
         UserDefaults.standard.set(value, forKey: "KVM_SwipeThreshold")
         updateStatusMenu(self.lastStatus)
+    }
+    
+    // === Launch at Login (LaunchAgent) ===
+    
+    private var launchAgentPlistPath: String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return "\(home)/Library/LaunchAgents/com.ponano.pano.plist"
+    }
+    
+    var isLaunchAtLoginEnabled: Bool {
+        if #available(macOS 13.0, *) {
+            return SMAppService.mainApp.status == .enabled
+        } else {
+            return FileManager.default.fileExists(atPath: launchAgentPlistPath)
+        }
+    }
+    
+    @objc func toggleLaunchAtLogin() {
+        let newState = !isLaunchAtLoginEnabled
+        setLaunchAtLogin(enabled: newState)
+        updateStatusMenu(self.lastStatus)
+    }
+    
+    func setLaunchAtLogin(enabled: Bool) {
+        if #available(macOS 13.0, *) {
+            // Используем современный API SMAppService (macOS 13+)
+            do {
+                if enabled {
+                    try SMAppService.mainApp.register()
+                    print("[Swift] Launch at Login enabled via SMAppService")
+                } else {
+                    try SMAppService.mainApp.unregister()
+                    print("[Swift] Launch at Login disabled via SMAppService")
+                }
+            } catch {
+                print("[Swift] SMAppService error: \(error.localizedDescription)")
+                // Fallback на LaunchAgent если SMAppService не сработал
+                setLaunchAtLoginViaLaunchAgent(enabled: enabled)
+            }
+        } else {
+            // Для macOS 11–12: используем LaunchAgent plist
+            setLaunchAtLoginViaLaunchAgent(enabled: enabled)
+        }
+    }
+    
+    private func setLaunchAtLoginViaLaunchAgent(enabled: Bool) {
+        if enabled {
+            // Определяем путь к .app бандлу
+            let bundlePath = Bundle.main.bundlePath
+            let appPath: String
+            if bundlePath.hasSuffix(".app") {
+                appPath = bundlePath
+            } else {
+                // Если запущено напрямую как бинарник, ищем .app рядом
+                let parentDir = (bundlePath as NSString).deletingLastPathComponent
+                appPath = "\(parentDir)/tv_kvm.app"
+            }
+            
+            let plistContent = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>Label</key>
+                <string>com.ponano.pano</string>
+                <key>ProgramArguments</key>
+                <array>
+                    <string>/usr/bin/open</string>
+                    <string>-a</string>
+                    <string>\(appPath)</string>
+                </array>
+                <key>RunAtLoad</key>
+                <true/>
+            </dict>
+            </plist>
+            """
+            
+            // Создаём директорию LaunchAgents если её нет
+            let launchAgentsDir = (launchAgentPlistPath as NSString).deletingLastPathComponent
+            try? FileManager.default.createDirectory(atPath: launchAgentsDir, withIntermediateDirectories: true)
+            
+            do {
+                try plistContent.write(toFile: launchAgentPlistPath, atomically: true, encoding: .utf8)
+                print("[Swift] Launch at Login enabled via LaunchAgent: \(launchAgentPlistPath)")
+            } catch {
+                print("[Swift] Failed to write LaunchAgent plist: \(error.localizedDescription)")
+            }
+        } else {
+            // Удаляем LaunchAgent plist
+            try? FileManager.default.removeItem(atPath: launchAgentPlistPath)
+            print("[Swift] Launch at Login disabled, removed LaunchAgent plist")
+        }
     }
     
     @objc func toggleVoiceInput() {
@@ -1816,13 +2620,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // Делаем иконку программы скрытой из Дока, чтобы не мешала
-        NSApp.setActivationPolicy(.accessory)
+        // Если нужно показать инструкцию — она сама переключит в .regular
+        let shouldShowGuide = !UserDefaults.standard.bool(forKey: "KVM_HideGuideOnStartup")
+        if !shouldShowGuide {
+            NSApp.setActivationPolicy(.accessory)
+        }
         
         // Устанавливаем корректный фрейм триггерной зоны
         updateWindowFrame()
         
         // Настройка Меню в строке состояния (Menu Bar)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // Устанавливаем начальное значение, чтобы иконка была видна сразу
+        statusItem.button?.image = makeMenuBarIcon(isActive: false)
+        statusItem.button?.title = ""
+        startBlinking()  // Мигание при старте (подключение)
+        let initialMenu = NSMenu()
+        initialMenu.addItem(NSMenuItem(title: Localization.get("cancel_connection"), action: #selector(self.terminate), keyEquivalent: "q"))
+        statusItem.menu = initialMenu
         
         // Колбэки сокета
         socketClient.onStatusChange = { [weak self] status in
@@ -1862,6 +2677,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Стартуем локальный TCP-клиент
         socketClient.connect()
+        
+        // Показываем инструкцию при запуске (если пользователь не отключил)
+        if shouldShowGuide {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                print("[Swift] Showing welcome guide...")
+                self?.showWelcomeGuide()
+            }
+        }
     }
     
     @objc func connectKVM() {
@@ -1898,6 +2721,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         socketClient.send(cmd: "CONNECT")
     }
     
+    @objc func forceReconnect() {
+        print("[Swift] User forced reconnect to TV.")
+        socketClient.send(cmd: "CONNECT")
+        updateStatusMenu("CONNECTING")
+    }
+    
+    @objc func forceRestartBridge() {
+        print("[Swift] User forced bridge restart.")
+        nodeRestartCount = 0  // Сбрасываем счётчик
+        stopNodeBridge()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.startNodeBridge()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                self?.socketClient.connect()
+            }
+        }
+        updateStatusMenu("CONNECTING")
+    }
+    
     @objc func terminate() {
         socketClient.send(cmd: "DISCONNECT")
         socketClient.disconnect()
@@ -1907,6 +2749,60 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationWillTerminate(_ notification: Notification) {
         stopNodeBridge()
+    }
+    
+    // Создаёт иконку монитора/ТВ для menu bar (18x18)
+    func makeMenuBarIcon(isActive: Bool) -> NSImage {
+        let size = NSSize(width: 18, height: 18)
+        let image = NSImage(size: size, flipped: false) { rect in
+            let color: NSColor = isActive ? .controlTextColor : NSColor.controlTextColor.withAlphaComponent(0.35)
+            color.setStroke()
+            
+            // Корпус монитора (скруглённый прямоугольник)
+            let bodyRect = NSRect(x: 1.5, y: 5, width: 15, height: 10)
+            let body = NSBezierPath(roundedRect: bodyRect, xRadius: 1.5, yRadius: 1.5)
+            body.lineWidth = 1.4
+            body.stroke()
+            
+            // Экран — заливка при активном состоянии
+            if isActive {
+                let screenRect = NSRect(x: 3, y: 6.5, width: 12, height: 7)
+                color.withAlphaComponent(0.15).setFill()
+                NSBezierPath(rect: screenRect).fill()
+            }
+            
+            // Ножка монитора
+            let stand = NSBezierPath()
+            stand.move(to: NSPoint(x: 7, y: 5))
+            stand.line(to: NSPoint(x: 7, y: 3))
+            stand.move(to: NSPoint(x: 11, y: 5))
+            stand.line(to: NSPoint(x: 11, y: 3))
+            // Подставка
+            stand.move(to: NSPoint(x: 5, y: 3))
+            stand.line(to: NSPoint(x: 13, y: 3))
+            stand.lineWidth = 1.2
+            stand.stroke()
+            
+            return true
+        }
+        image.isTemplate = true  // Позволяет macOS адаптировать цвет под тему
+        return image
+    }
+    
+    func startBlinking() {
+        stopBlinking()
+        blinkVisible = true
+        blinkTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
+            guard let self = self, let button = self.statusItem.button else { return }
+            self.blinkVisible.toggle()
+            button.image = self.blinkVisible ? self.makeMenuBarIcon(isActive: false) : nil
+        }
+    }
+    
+    func stopBlinking() {
+        blinkTimer?.invalidate()
+        blinkTimer = nil
+        blinkVisible = true
     }
     
     func updateStatusMenu(_ status: String) {
@@ -1957,7 +2853,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if let button = self.statusItem.button {
                 switch status {
                 case "READY":
-                    button.title = Localization.get("kvm_connected")
+                    self.stopBlinking()
+                    button.image = self.makeMenuBarIcon(isActive: true)
+                    button.title = ""
+                    self.nodeRestartCount = 0  // Сбрасываем счётчик рестартов при успехе
                     
                     // - Меню при активном подключении
                     menu.addItem(NSMenuItem(title: Localization.get("disconnect_tv"), action: #selector(self.disconnectKVM), keyEquivalent: "d"))
@@ -1965,7 +2864,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     menu.addItem(NSMenuItem(title: Localization.get("forget_tv"), action: #selector(self.unpairKVM), keyEquivalent: "u"))
                     
                 case "NEED_PIN":
-                    button.title = Localization.get("kvm_enter_pin")
+                    self.startBlinking()
+                    button.title = ""
                     
                     // - Меню при вводе PIN
                     menu.addItem(NSMenuItem(title: Localization.get("cancel_pairing"), action: #selector(self.disconnectKVM), keyEquivalent: "c"))
@@ -1975,13 +2875,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                     
                 case "CONNECTING":
-                    button.title = Localization.get("kvm_connecting")
+                    self.startBlinking()
+                    button.title = ""
                     
                     // - Меню при подключении
                     menu.addItem(NSMenuItem(title: Localization.get("cancel_connection"), action: #selector(self.disconnectKVM), keyEquivalent: "c"))
                     
+                case "TV_UNREACHABLE":
+                    self.stopBlinking()
+                    button.image = self.makeMenuBarIcon(isActive: false)
+                    button.title = ""
+                    
+                    // Подсказка для пользователя
+                    let hintItem = NSMenuItem(title: Localization.get("tv_unreachable_hint"), action: nil, keyEquivalent: "")
+                    hintItem.isEnabled = false
+                    menu.addItem(hintItem)
+                    menu.addItem(NSMenuItem(title: Localization.get("reconnect_now"), action: #selector(self.forceReconnect), keyEquivalent: "r"))
+                    menu.addItem(NSMenuItem(title: Localization.get("forget_tv"), action: #selector(self.unpairKVM), keyEquivalent: "u"))
+                    
+                case "BRIDGE_DEAD":
+                    self.stopBlinking()
+                    button.image = self.makeMenuBarIcon(isActive: false)
+                    button.title = ""
+                    
+                    let hintItem = NSMenuItem(title: Localization.get("bridge_restart_failed"), action: nil, keyEquivalent: "")
+                    hintItem.isEnabled = false
+                    menu.addItem(hintItem)
+                    menu.addItem(NSMenuItem(title: Localization.get("reconnect_now"), action: #selector(self.forceRestartBridge), keyEquivalent: "r"))
+                    
                 default: // - DISCONNECTED
-                    button.title = Localization.get("kvm_disconnected")
+                    self.stopBlinking()
+                    button.image = self.makeMenuBarIcon(isActive: false)
+                    button.title = ""
                     
                     if hasCert {
                         // - Если сопряжение уже выполнено, даем кнопку подключения
@@ -2115,6 +3040,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             langMenuItem.submenu = langMenu
             menu.addItem(langMenuItem)
             
+            // - Автозапуск при входе в систему
+            let launchAtLoginItem = NSMenuItem(title: Localization.get("launch_at_login"), action: #selector(self.toggleLaunchAtLogin), keyEquivalent: "")
+            launchAtLoginItem.state = self.isLaunchAtLoginEnabled ? .on : .off
+            menu.addItem(launchAtLoginItem)
+            
+            menu.addItem(NSMenuItem(title: Localization.get("guide_menu_item"), action: #selector(self.showWelcomeGuideFromMenu), keyEquivalent: "h"))
             menu.addItem(NSMenuItem.separator())
             menu.addItem(NSMenuItem(title: Localization.get("exit_kvm"), action: #selector(self.terminate), keyEquivalent: "q"))
             

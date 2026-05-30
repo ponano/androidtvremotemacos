@@ -8,7 +8,11 @@ npm-cache/
 # Скомпилированные бинарные файлы
 tv_kvm
 tv_kvm.app/
+Pano.app/
 
-# Логи и временные файлы
+# Логи, бэкапы и временные файлы
 *.log
+*.bak
+kvm_backup/
 .DS_Store
+Resources/icon_scaled.png

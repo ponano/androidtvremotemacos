@@ -1,3 +1,0 @@
-/* InfoPlist.strings (French) */
-NSMicrophoneUsageDescription = "L'accès au microphone est requis pour la saisie vocale de texte sur la TV.";
-NSSpeechRecognitionUsageDescription = "La reconnaissance vocale est requise pour convertir votre voix en texte.";

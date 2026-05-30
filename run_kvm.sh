@@ -46,11 +46,7 @@ echo " 🚀 Запуск KVM-моста на базе Google TV Remote V2..."
 echo " Нажмите Ctrl+C в этом окне для выключения программы."
 echo "===================================================="
 
-# Запуск фонового Node.js-моста
-node tv_remote_bridge.js "$TV_IP" &
-NODE_PID=$!
-
-# Запуск Swift-клиента из бандла
+# Запуск Swift-клиента из бандла (Node.js мост запускается автоматически из Swift)
 ./tv_kvm.app/Contents/MacOS/tv_kvm &
 SWIFT_PID=$!
 
@@ -58,9 +54,9 @@ SWIFT_PID=$!
 cleanup() {
   echo ""
   echo " 🛑 Завершение работы процессов KVM..."
-  kill $NODE_PID 2>/dev/null
   kill $SWIFT_PID 2>/dev/null
   killall tv_kvm 2>/dev/null
+  killall -f "tv_remote_bridge.js" 2>/dev/null
   echo " 💤 Все процессы успешно остановлены. До свидания!"
   exit 0
 }

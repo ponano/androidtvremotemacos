@@ -334,6 +334,11 @@ androidRemote.on('ready', () => {
 let reconnectTimeout = null;
 let disconnectsHistory = [];
 
+// Экспоненциальный backoff для переподключения к ТВ
+const RECONNECT_DELAYS = [3000, 5000, 10000, 15000, 30000]; // 3с → 5с → 10с → 15с → 30с
+let reconnectAttempt = 0;
+let tvUnreachableNotified = false; // Отправлен ли TV_UNREACHABLE Swift-клиенту
+
 function recordDisconnect() {
     const now = Date.now();
     disconnectsHistory.push(now);
@@ -379,17 +384,29 @@ function reconnectTV() {
     status = "CONNECTING";
     sendStatus(status);
     
+    // Экспоненциальный backoff: берём задержку из массива (или максимальную)
+    const delay = RECONNECT_DELAYS[Math.min(reconnectAttempt, RECONNECT_DELAYS.length - 1)];
+    reconnectAttempt++;
+    console.log(`[Bridge] Reconnect attempt #${reconnectAttempt}, delay: ${delay}ms`);
+    
     reconnectTimeout = setTimeout(() => {
         console.log("[Bridge] Reconnecting to Android TV...");
         androidRemote.start().then(() => {
             console.log("[Bridge] New start() call successfully resolved connection!");
-            // При успешном соединении сбрасываем историю дисконнектов
+            // При успешном соединении сбрасываем backoff и историю
+            reconnectAttempt = 0;
+            tvUnreachableNotified = false;
             disconnectsHistory = [];
         }).catch((err) => {
             console.error("[Bridge] Reconnect start() failed:", err.message || err);
+            // После первого неудачного подключения — отправляем TV_UNREACHABLE
+            if (!tvUnreachableNotified) {
+                tvUnreachableNotified = true;
+                sendStatus("TV_UNREACHABLE");
+            }
             reconnectTV();
         });
-    }, 3000);
+    }, delay);
 }
 
 androidRemote.on('unpaired', () => {
@@ -527,9 +544,79 @@ function handleCommand(cmd) {
         }
     } else if (cmd === "CONNECT") {
         if (status === "DISCONNECTED" || status === "CONNECTING") {
+            // Сброс состояния реконнекта и конфликтов при ручном подключении
+            reconnectAttempt = 0;
+            tvUnreachableNotified = false;
+            disconnectsHistory = [];
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+            }
+            
             status = "CONNECTING";
             sendStatus(status);
-            reconnectTV();
+            
+            // Прямое подключение без задержки (в отличие от reconnectTV с backoff)
+            console.log("[Bridge] Direct CONNECT: starting androidRemote.start()...");
+            try {
+                androidRemote.stop();
+            } catch(e) {}
+            androidRemote = new AndroidRemote(host, options);
+            
+            // Переподписываемся на события нового экземпляра
+            androidRemote.on('secret', () => {
+                console.log("[Bridge] PIN code verification required. Check the TV screen.");
+                status = "NEED_PIN";
+                sendStatus(status);
+            });
+            androidRemote.on('ready', () => {
+                console.log("[Bridge] Google TV connection established and secure!");
+                status = "READY";
+                sendStatus(status);
+                try {
+                    const newCert = androidRemote.getCertificate();
+                    if (newCert && (!options.cert || JSON.stringify(newCert) !== JSON.stringify(options.cert))) {
+                        if (!fs.existsSync(credentialsDir)) {
+                            fs.mkdirSync(credentialsDir, { recursive: true });
+                            fs.chmodSync(credentialsDir, 0o700);
+                        }
+                        fs.writeFileSync(certPath, JSON.stringify(newCert), 'utf8');
+                        fs.chmodSync(certPath, 0o600);
+                        options.cert = newCert;
+                        console.log("[Bridge] Saved secure TLS pairing certificate to .credentials/cert.json");
+                    }
+                } catch (e) {
+                    console.error("[Bridge] Error saving pairing certificate:", e.message);
+                }
+            });
+            androidRemote.on('unpaired', () => {
+                console.log("[Bridge] TV indicated connection is unpaired.");
+                status = "DISCONNECTED";
+                sendStatus(status);
+            });
+            androidRemote.on('error', (err) => {
+                console.error("[Bridge] Connection error:", err.message || err);
+                reconnectTV();
+            });
+            if (androidRemote.remoteManager) {
+                androidRemote.remoteManager.on('close', (hasError) => {
+                    console.log("[Bridge] RemoteManager emitted close event (hasError:", hasError, ")");
+                    reconnectTV();
+                });
+            }
+            
+            androidRemote.start().then(() => {
+                console.log("[Bridge] Direct CONNECT: start() resolved successfully!");
+                reconnectAttempt = 0;
+                tvUnreachableNotified = false;
+                disconnectsHistory = [];
+            }).catch((err) => {
+                console.error("[Bridge] Direct CONNECT failed:", err.message || err);
+                if (!tvUnreachableNotified) {
+                    tvUnreachableNotified = true;
+                    sendStatus("TV_UNREACHABLE");
+                }
+            });
         }
     } else if (cmd === "DISCONNECT") {
         console.log("[Bridge] Stopping Google TV remote...");
@@ -560,7 +647,7 @@ server.listen(12345, "127.0.0.1", () => {
 
 // Периодическая проверка статуса соединения (Heartbeat) каждые 2 секунды.
 // Сверхлегкий процесс, не нагружающий процессор Mac (0% CPU).
-setInterval(() => {
+const heartbeatInterval = setInterval(() => {
     if (status === "READY") {
         const client = androidRemote.remoteManager ? androidRemote.remoteManager.client : null;
         if (!client || client.destroyed || client.readyState !== "open") {
@@ -569,3 +656,57 @@ setInterval(() => {
         }
     }
 }, 2000);
+
+// Graceful shutdown: освобождаем порт 12345 и закрываем соединение с ТВ
+function gracefulShutdown(signal) {
+    console.log(`[Bridge] Received ${signal}. Shutting down gracefully...`);
+    
+    // Останавливаем heartbeat
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+    }
+    
+    // Отменяем таймер реконнекта
+    if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+    }
+    
+    // Закрываем соединение с ТВ
+    try {
+        androidRemote.stop();
+    } catch(e) {}
+    
+    // Закрываем TCP-клиент
+    if (activeSocket) {
+        try {
+            activeSocket.destroy();
+        } catch(e) {}
+        activeSocket = null;
+    }
+    
+    // Закрываем TCP-сервер (освобождаем порт 12345)
+    server.close(() => {
+        console.log("[Bridge] TCP server closed. Port 12345 freed.");
+        process.exit(0);
+    });
+    
+    // Принудительный выход через 3 секунды если server.close() зависнет
+    setTimeout(() => {
+        console.log("[Bridge] Forced exit after timeout.");
+        process.exit(1);
+    }, 3000).unref();
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));
+
+// Перехват необработанных ошибок для предотвращения крашей моста
+process.on('uncaughtException', (err) => {
+    console.error("[Bridge] UNCAUGHT EXCEPTION (bridge stays alive):", err.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error("[Bridge] UNHANDLED REJECTION (bridge stays alive):", reason);
+});

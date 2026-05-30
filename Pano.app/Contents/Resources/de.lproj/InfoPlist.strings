@@ -1,3 +1,0 @@
-/* InfoPlist.strings (German) */
-NSMicrophoneUsageDescription = "Der Mikrofonzugriff ist für die Spracheingabe von Text auf dem Fernseher erforderlich.";
-NSSpeechRecognitionUsageDescription = "Die Spracherkennung ist erforderlich, um Ihre Stimme in Text umzuwandeln.";
