@@ -122,6 +122,9 @@ MockAndroidRemote.createdPackets = [];
 // Мокаем аргументы командной строки
 process.argv = ['node', 'tv_remote_bridge.js', '127.0.0.1'];
 
+// Выставляем флаг тестирования для изоляции учетных данных моста
+process.env.TV_KVM_TESTING = 'true';
+
 // Удаляем сертификаты из предыдущих тестов, чтобы проверить полный цикл
 const certDir = path.join(__dirname, '../.credentials');
 const certPath = path.join(certDir, 'cert.json');

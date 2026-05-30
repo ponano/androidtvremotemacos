@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const net = require('net');
 const { AndroidRemote, RemoteKeyCode, RemoteDirection } = require('androidtv-remote');
 const { remoteMessageManager } = require('androidtv-remote/dist/remote/RemoteMessageManager');
@@ -126,7 +127,10 @@ if (!host) {
     process.exit(1);
 }
 
-const credentialsDir = path.join(__dirname, '.credentials');
+const isTesting = process.env.TV_KVM_TESTING === 'true';
+const credentialsDir = isTesting 
+    ? path.join(__dirname, '.credentials') 
+    : path.join(os.homedir(), '.tv_kvm_credentials');
 const certPath = path.join(credentialsDir, 'cert.json');
 
 let cert = {};
@@ -363,7 +367,7 @@ androidRemote.on('ready', () => {
             fs.writeFileSync(certPath, JSON.stringify(newCert), 'utf8');
             fs.chmodSync(certPath, 0o600);
             options.cert = newCert;
-            console.log("[Bridge] Saved secure TLS pairing certificate to .credentials/cert.json");
+            console.log("[Bridge] Saved secure TLS pairing certificate to " + certPath);
         }
     } catch (e) {
         console.error("[Bridge] Error saving pairing certificate:", e.message);
@@ -625,7 +629,7 @@ function handleCommand(cmd) {
                         fs.writeFileSync(certPath, JSON.stringify(newCert), 'utf8');
                         fs.chmodSync(certPath, 0o600);
                         options.cert = newCert;
-                        console.log("[Bridge] Saved secure TLS pairing certificate to .credentials/cert.json");
+                        console.log("[Bridge] Saved secure TLS pairing certificate to " + certPath);
                     }
                 } catch (e) {
                     console.error("[Bridge] Error saving pairing certificate:", e.message);

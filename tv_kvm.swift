@@ -2950,8 +2950,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let bundlePath = Bundle.main.bundlePath
             let parentDir = (bundlePath as NSString).deletingLastPathComponent
             let currentDir = FileManager.default.currentDirectoryPath
+            let homeDir = NSHomeDirectory()
             
             let possibleCertPaths = [
+                "\(homeDir)/.tv_kvm_credentials/cert.json",
                 "\(bundlePath)/Contents/Resources/bridge/.credentials/cert.json",
                 "\(parentDir)/.credentials/cert.json",
                 "\(currentDir)/.credentials/cert.json"
