@@ -1,7 +1,7 @@
 {
-  "name": "mactv-kvm-bridge",
+  "name": "pano-kvm-bridge",
   "version": "1.0.0",
-  "description": "macOS to Android TV Google TV Remote V2 KVM Bridge",
+  "description": "Pano: macOS to Android TV Google TV Remote V2 KVM Bridge",
   "main": "tv_remote_bridge.js",
   "scripts": {
     "start": "node tv_remote_bridge.js"
