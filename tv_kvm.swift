@@ -8,7 +8,9 @@ import AVFoundation
 
 // ==========================================
 // Ширина триггерной зоны захвата на краю экрана (окно больше не расширяется, исключая пересечение полей)
-let INITIAL_ZONE_WIDTH = 8.0
+struct Config {
+    static let INITIAL_ZONE_WIDTH = 8.0
+}
 // ==========================================
 
 // Класс динамической локализации на 6 языков (автоматическое определение при запуске)
@@ -41,6 +43,33 @@ struct Localization {
             "de": "Oberflächensprache",
             "es": "Idioma de la interfaz",
             "zh": "界面语言"
+        ],
+        "cert_rejected_title": [
+            "ru": "Ошибка безопасности",
+            "en": "Security Certificate Error",
+            "fr": "Erreur de certificat de sécurité",
+            "it": "Errore del certificato di sicurezza",
+            "de": "Sicherheitszertifikat-Fehler",
+            "es": "Error de certificado de seguridad",
+            "zh": "安全证书错误"
+        ],
+        "cert_rejected_text": [
+            "ru": "Телевизор отклонил сертификат подключения. Возможно, сопряжение было разорвано на ТВ, или срок его действия истек.\n\nХотите запустить процесс сопряжения заново?",
+            "en": "The TV rejected the connection certificate. The pairing may have been removed on the TV, or the certificate has expired.\n\nWould you like to start the pairing process again?",
+            "fr": "La TV a rejeté le certificat de connexion. L'association a peut-être été supprimée sur la TV, ou le certificat a expiré.\n\nSouhaitez-vous relancer le processus d'association ?",
+            "it": "La TV ha rifiutato il certificato di connessione. L'associazione potrebbe essere stata rimossa sulla TV o il certificato è scaduto.\n\nVuoi avviare nuovamente il processo di associazione?",
+            "de": "Der TV hat das Verbindungszertifikat abgelehnt. Möglicherweise wurde die Kopplung auf dem TV aufgehoben, oder das Zertifikat ist abgelaufen.\n\nMöchten Sie den Kopplungsprozess erneut starten?",
+            "es": "La TV rechazó el certificado de conexión. Es posible que se haya eliminado la vinculación en la TV o que el certificado haya expirado.\n\n¿Le gustaría iniciar el proceso de vinculación de nuevo?",
+            "zh": "电视拒绝了连接证书。可能是电视上的配对已被删除，或者证书已过期。\n\n您想重新启动配对过程吗？"
+        ],
+        "cert_rejected_repair": [
+            "ru": "Сопрячь заново",
+            "en": "Re-pair TV",
+            "fr": "Associer à nouveau",
+            "it": "Associa di nuovo",
+            "de": "Erneut koppeln",
+            "es": "Vincular de nuevo",
+            "zh": "重新配对"
         ],
         "kvm_connected": [
             "ru": "🟢 Pano: Подключен",
@@ -535,6 +564,24 @@ struct Localization {
             "es": "Volver al Mac",
             "zh": "返回 Mac"
         ],
+        "guide_g7_action": [
+            "ru": "Скролл 2 пальцами",
+            "en": "2-finger scroll",
+            "fr": "Défilement à 2 doigts",
+            "it": "Scorrimento a 2 dita",
+            "de": "2-Finger-Scroll",
+            "es": "Desplazar con 2 dedos",
+            "zh": "双指滚动"
+        ],
+        "guide_g7_desc": [
+            "ru": "Громкость ТВ",
+            "en": "TV Volume",
+            "fr": "Volume de la TV",
+            "it": "Volume della TV",
+            "de": "TV-Lautstärke",
+            "es": "Volumen de la TV",
+            "zh": "电视音量"
+        ],
         "guide_tip": [
             "ru": "💡 Используйте Ctrl+Shift+T для ввода текста на ТВ",
             "en": "💡 Use Ctrl+Shift+T to type text on the TV",
@@ -675,6 +722,10 @@ class SpeechManager {
             self.recognitionTask = nil
         }
         
+        // Unconditionally stop engine and remove old taps before starting to ensure clean state
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        
         let localeId: String
         switch Localization.currentLanguage {
         case "ru": localeId = "ru-RU"
@@ -687,9 +738,22 @@ class SpeechManager {
         default: localeId = "en-US"
         }
         
-        speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: localeId))
+        let recognizer = SFSpeechRecognizer(locale: Locale(identifier: localeId))
+        speechRecognizer = recognizer
+        
+        guard let recognizer = recognizer, recognizer.isAvailable else {
+            onError?("Распознавание речи недоступно для языка \(localeId) или Siri отключена.")
+            return
+        }
         
         let inputNode = audioEngine.inputNode
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        
+        // Safely check format parameters before installTap to avoid crashes
+        guard recordingFormat.sampleRate > 0, recordingFormat.channelCount > 0 else {
+            onError?("Ошибка формата аудиовхода: неподходящее устройство или частота дискретизации.")
+            return
+        }
         
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest = recognitionRequest else {
@@ -699,7 +763,6 @@ class SpeechManager {
         
         recognitionRequest.shouldReportPartialResults = true
         
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer: AVAudioPCMBuffer, when: AVAudioTime) in
             self.recognitionRequest?.append(buffer)
         }
@@ -711,7 +774,7 @@ class SpeechManager {
             isRecording = true
             onStateChange?(true)
             
-            recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+            recognitionTask = recognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
                 guard let self = self else { return }
                 
                 var isFinal = false
@@ -732,8 +795,6 @@ class SpeechManager {
     }
     
     func stopRecording() {
-        guard isRecording else { return }
-        
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
         
@@ -743,8 +804,10 @@ class SpeechManager {
         recognitionTask?.cancel()
         recognitionTask = nil
         
-        isRecording = false
-        onStateChange?(false)
+        if isRecording {
+            isRecording = false
+            onStateChange?(false)
+        }
     }
 }
 
@@ -905,7 +968,7 @@ class SocketClient {
                 print("[Swift Socket] Connection failed: \(error). Reconnecting...")
                 self?.scheduleReconnect()
             case .waiting(let error):
-                print("[Swift Socket] Connection waiting: \(error). Retrying in 3 seconds...")
+                print("[Swift Socket] Connection waiting: \(error). Retrying in 1 second...")
                 self?.scheduleReconnect()
             case .cancelled:
                 print("[Swift Socket] Connection cancelled.")
@@ -932,15 +995,17 @@ class SocketClient {
         guard !isReconnecting else { return }
         isReconnecting = true
         
-        // Очищаем старый handler и cancel
-        if let conn = connection {
-            conn.stateUpdateHandler = nil
-            conn.cancel()
-            connection = nil
-        }
-        
-        queue.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            self?._connect()
+        // Safety check: dispatch timer on Main thread, then safely cancel & connect on queue
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self = self else { return }
+            self.queue.async {
+                if let conn = self.connection {
+                    conn.stateUpdateHandler = nil
+                    conn.cancel()
+                    self.connection = nil
+                }
+                self._connect()
+            }
         }
     }
     
@@ -1014,9 +1079,23 @@ class SocketClient {
     }
 }
 
+
+protocol MouseStateProviding {
+    var pressedMouseButtons: Int { get }
+}
+
+class DefaultMouseStateProvider: MouseStateProviding {
+    var pressedMouseButtons: Int {
+        return NSEvent.pressedMouseButtons
+    }
+}
+
 class KVMView: NSView {
     var isActive = false
     var activeEdge: KVMEdge = .right
+    
+    // Позволяет подменять источник состояния мыши в тестах (Dependency Injection)
+    var mouseStateProvider: MouseStateProviding = DefaultMouseStateProvider()
     
     var macWidth = 1440.0
     var macHeight = 900.0
@@ -1039,8 +1118,8 @@ class KVMView: NSView {
     var isBrowserActive: Bool {
         return browserPackages.contains(currentAppPackage)
     }
-    var scrollThreshold = 30.0
-    var swipeThreshold = 50.0
+    var scrollThreshold = 60.0
+    var swipeThreshold = 140.0
     
     // Отслеживание тапа 3 пальцами (Home)
     var maxSimultaneousTouches = 0
@@ -1050,10 +1129,11 @@ class KVMView: NSView {
     var currentHoldDirection: String? = nil  // Текущая зажатая клавиша (nil = ничего не зажато)
     var holdIdleTimer: Timer? = nil          // Таймер отпускания при остановке пальца
     
-    // Количество пальцев на трекпаде (для определения жеста: 1=навигация, 2=скролл, 3=Home)
+    // Количество пальцев на трекпаде (для определения жеста: 1=навигация, 2=громкость, 3=Home)
     var currentTouchCount = 0
-    var accumulatedScrollDeltaY = 0.0        // Накопление дельты для 2-пальцевого скролла в браузере
-    let browserScrollThreshold = 15.0       // Порог срабатывания скролла в браузере
+    var accumulatedVolumeDeltaY = 0.0        // Накопление дельты для 2-пальцевого управления громкостью
+    let volumeSwipeThreshold = 6.0           // Порог срабатывания изменения громкости (аналог шага на пульте)
+    var lastVolumeKeyTime = Date.distantPast // Кулдаун между командами громкости
     
     private var trackingArea: NSTrackingArea?
     
@@ -1068,6 +1148,19 @@ class KVMView: NSView {
         
         // Включаем отслеживание касаний трекпада для обнаружения мультитач-жестов
         self.allowedTouchTypes = [.indirect]
+        self.acceptsTouchEvents = true
+        
+        // Регистрируем типы Drag & Drop для предотвращения активации при перетаскивании файлов/вкладок
+        self.registerForDraggedTypes([
+            .fileURL,
+            .string,
+            .html,
+            .tiff,
+            .png,
+            .pdf,
+            .rtf,
+            .rtfd
+        ])
     }
     
     override func updateTrackingAreas() {
@@ -1154,6 +1247,12 @@ class KVMView: NSView {
     }
     
     override func mouseEntered(with event: NSEvent) {
+        // Проверяем, зажата ли левая кнопка мыши (перетаскивание, выделение текста или окон)
+        if (mouseStateProvider.pressedMouseButtons & 1) != 0 {
+            print("[KVM] Левая кнопка мыши зажата (возможно перетаскивание). Игнорируем активацию режима ТВ.")
+            return
+        }
+        
         if !isActive {
             // Отменяем любой предыдущий таймер на всякий случай
             activationTimer?.invalidate()
@@ -1175,6 +1274,13 @@ class KVMView: NSView {
             activationTimer?.invalidate()
             activationTimer = nil
         }
+    }
+    
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        print("[KVM] Сессия перетаскивания вошла в триггерную зону. Блокируем KVM.")
+        activationTimer?.invalidate()
+        activationTimer = nil
+        return []
     }
     
     func enterTVMode() {
@@ -1209,6 +1315,7 @@ class KVMView: NSView {
             accumulatedX = 0.0
             accumulatedY = 0.0
             accumulatedScrollY = 0.0
+            accumulatedVolumeDeltaY = 0.0
             
             // Перемещаем курсор мыши внутрь экрана Mac (на 50 пикселей от триггерной зоны)
             // в зависимости от выбранного края перехода, чтобы избежать моментального авто-захвата
@@ -1251,54 +1358,13 @@ class KVMView: NSView {
         let timeSinceLastScroll = now.timeIntervalSince(lastScrollGestureTime)
         
         // Если пользователь скроллит двумя пальцами (последний скролл был менее 0.3 сек назад),
-        // мы полностью блокируем обработку вертикальных свайпов в mouseMoved.
+        // мы полностью блокируем обработку вертикальных свайпов in mouseMoved.
         // Это предотвращает "двоение" команд и резкие хаотичные прыжки фокуса.
         if timeSinceLastScroll >= 0.3 {
             accumulatedY += Double(event.deltaY)
         } else {
             accumulatedY = 0.0
         }
-        
-        // === Режим скроллинга: 2 пальца на трекпаде + браузер ===
-        if currentTouchCount >= 2 && isBrowserActive {
-            // При 2 пальцах в браузере вертикальная дельта используется для скролла страницы
-            accumulatedScrollDeltaY += Double(event.deltaY)
-            accumulatedX = 0.0
-            accumulatedY = 0.0
-            
-            // Отпускаем зажатую стрелку навигации, если она была
-            releaseHold()
-            
-            if abs(accumulatedScrollDeltaY) >= browserScrollThreshold {
-                let now = Date()
-                if now.timeIntervalSince(lastScrollKeyTime) >= 0.08 {
-                    if accumulatedScrollDeltaY > 0 {
-                        sendKey("KEYCODE_PAGE_DOWN")
-                    } else {
-                        sendKey("KEYCODE_PAGE_UP")
-                    }
-                    accumulatedScrollDeltaY = 0.0
-                    lastScrollKeyTime = now
-                    print("[KVM] Browser 2-finger scroll: \(accumulatedScrollDeltaY > 0 ? "PAGE_DOWN" : "PAGE_UP")")
-                }
-            }
-            
-            // Пропускаем обработку навигации и exit-порога ниже
-            let scrollCenter: CGPoint
-            switch activeEdge {
-            case .right:
-                scrollCenter = CGPoint(x: macWidth - (INITIAL_ZONE_WIDTH / 2.0), y: macHeight / 2.0)
-            case .left:
-                scrollCenter = CGPoint(x: INITIAL_ZONE_WIDTH / 2.0, y: macHeight / 2.0)
-            case .top:
-                scrollCenter = CGPoint(x: macWidth / 2.0, y: INITIAL_ZONE_WIDTH / 2.0)
-            }
-            CGWarpMouseCursorPosition(scrollCenter)
-            return
-        }
-        
-        // Сброс скролл-дельты при переходе к 1-пальцевой навигации
-        accumulatedScrollDeltaY = 0.0
         
         // 1. Сначала обрабатываем горизонтальный свайп
         if abs(accumulatedX) >= swipeThreshold {
@@ -1352,11 +1418,11 @@ class KVMView: NSView {
         let centerPoint: CGPoint
         switch activeEdge {
         case .right:
-            centerPoint = CGPoint(x: macWidth - (INITIAL_ZONE_WIDTH / 2.0), y: macHeight / 2.0)
+            centerPoint = CGPoint(x: macWidth - (Config.INITIAL_ZONE_WIDTH / 2.0), y: macHeight / 2.0)
         case .left:
-            centerPoint = CGPoint(x: INITIAL_ZONE_WIDTH / 2.0, y: macHeight / 2.0)
+            centerPoint = CGPoint(x: Config.INITIAL_ZONE_WIDTH / 2.0, y: macHeight / 2.0)
         case .top:
-            centerPoint = CGPoint(x: macWidth / 2.0, y: INITIAL_ZONE_WIDTH / 2.0)
+            centerPoint = CGPoint(x: macWidth / 2.0, y: Config.INITIAL_ZONE_WIDTH / 2.0)
         }
         CGWarpMouseCursorPosition(centerPoint)
     }
@@ -1413,40 +1479,28 @@ class KVMView: NSView {
         let now = Date()
         lastScrollGestureTime = now
         
-        accumulatedScrollY += Double(event.deltaY)
+        accumulatedVolumeDeltaY += Double(event.deltaY)
         
-        // В браузере порог скроллинга ниже, т.к. deltaY маленькие (1-4 за событие)
-        let effectiveScrollThreshold = isBrowserActive ? 5.0 : scrollThreshold
-        let maxAccumulated = effectiveScrollThreshold * 3.0
-        if accumulatedScrollY > maxAccumulated {
-            accumulatedScrollY = maxAccumulated
-        } else if accumulatedScrollY < -maxAccumulated {
-            accumulatedScrollY = -maxAccumulated
+        // Ограничим накопление дельты, чтобы громкость не менялась бесконечно после одного сильного движения
+        let maxAccumulated = volumeSwipeThreshold * 3.0
+        if accumulatedVolumeDeltaY > maxAccumulated {
+            accumulatedVolumeDeltaY = maxAccumulated
+        } else if accumulatedVolumeDeltaY < -maxAccumulated {
+            accumulatedVolumeDeltaY = -maxAccumulated
         }
         
-        if abs(accumulatedScrollY) >= effectiveScrollThreshold {
-            // Мягкий кулдаун отправки команд прокрутки списков на ТВ (80 мс)
-            if now.timeIntervalSince(lastScrollKeyTime) >= 0.08 {
-                if isBrowserActive {
-                    // Браузер: PAGE_UP/PAGE_DOWN скроллит страницу (а не перемещает фокус)
-                    if accumulatedScrollY > 0 {
-                        sendKey("KEYCODE_PAGE_UP")
-                        accumulatedScrollY -= effectiveScrollThreshold
-                    } else {
-                        sendKey("KEYCODE_PAGE_DOWN")
-                        accumulatedScrollY += effectiveScrollThreshold
-                    }
+        if abs(accumulatedVolumeDeltaY) >= volumeSwipeThreshold {
+            // Кулдаун 60 мс для моментального и супербыстрого изменения громкости
+            if now.timeIntervalSince(lastVolumeKeyTime) >= 0.06 {
+                if accumulatedVolumeDeltaY > 0 {
+                    sendKey("KEYCODE_VOLUME_UP")
+                    print("[KVM] 2-finger scroll/swipe: Volume Up")
                 } else {
-                    // Лаунчер/YouTube: DPAD_UP/DOWN перемещает фокус по списку
-                    if accumulatedScrollY > 0 {
-                        sendKey("KEYCODE_DPAD_UP")
-                        accumulatedScrollY -= scrollThreshold
-                    } else {
-                        sendKey("KEYCODE_DPAD_DOWN")
-                        accumulatedScrollY += scrollThreshold
-                    }
+                    sendKey("KEYCODE_VOLUME_DOWN")
+                    print("[KVM] 2-finger scroll/swipe: Volume Down")
                 }
-                lastScrollKeyTime = now
+                accumulatedVolumeDeltaY = 0.0
+                lastVolumeKeyTime = now
             }
         }
     }
@@ -1458,6 +1512,7 @@ class KVMView: NSView {
         let touches = event.touches(matching: .touching, in: self)
         let count = touches.count
         currentTouchCount = count
+        print("[KVM Touch] touchesBegan: count=\(count), currentTouchCount=\(currentTouchCount)")
         maxSimultaneousTouches = max(maxSimultaneousTouches, count)
         if count >= 3 && threeFingerTouchStartTime == nil {
             threeFingerTouchStartTime = Date()
@@ -1472,10 +1527,12 @@ class KVMView: NSView {
         }
         let remaining = event.touches(matching: .touching, in: self)
         currentTouchCount = remaining.count
+        print("[KVM Touch] touchesEnded: remaining=\(remaining.count), currentTouchCount=\(currentTouchCount)")
         if remaining.count == 0 {
             // Все пальцы подняты
+            let now = Date()
             if maxSimultaneousTouches == 3, let start = threeFingerTouchStartTime {
-                let duration = Date().timeIntervalSince(start)
+                let duration = now.timeIntervalSince(start)
                 if duration < 0.4 { // Менее 400 мс — это тап, а не свайп
                     print("[KVM] Тап 3 пальцами: Home (KEYCODE_HOME)")
                     sendKey("KEYCODE_HOME")
@@ -1487,6 +1544,8 @@ class KVMView: NSView {
     }
     
     override func touchesCancelled(with event: NSEvent) {
+        print("[KVM Touch] touchesCancelled")
+        currentTouchCount = 0
         maxSimultaneousTouches = 0
         threeFingerTouchStartTime = nil
     }
@@ -1739,8 +1798,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var inputWindow: TextInputWindow?
     var inputTextField: FocusTextField?
     var inputContainer: StyledTextFieldContainer?
+    var inputTitleLabel: NSTextField?
+    var inputHelpLabel: NSTextField?
     var micButton: MicButton?
-    let speechManager = SpeechManager()
+    var speechManager: SpeechManager? = nil
     var wasKVMActiveBeforeInput = false
     var isTyping = false
     
@@ -1839,8 +1900,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         process.arguments = args
         process.currentDirectoryURL = URL(fileURLWithPath: workDir)
         
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        process.standardOutput = FileHandle.standardOutput
+        process.standardError = FileHandle.standardError
         
         // Мониторинг завершения Node.js процесса — автоперезапуск при крахе
         process.terminationHandler = { [weak self] terminatedProcess in
@@ -1934,7 +1995,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let windowWidth: CGFloat = 340.0
-        let windowHeight: CGFloat = 290.0
+        let windowHeight: CGFloat = 322.0
         let x = (screenFrame.width - windowWidth) / 2.0 + screenFrame.origin.x
         let y = screenFrame.origin.y + 60.0  // Внизу экрана
         let frame = NSRect(x: x, y: y, width: windowWidth, height: windowHeight)
@@ -1976,6 +2037,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ("👆  Клик (короткий)", "Выбор / OK"),
             ("👆  Клик (зажать ≥1с)", "Режим скроллинга"),
             ("✌️  Клик 2 пальцами", "Назад"),
+            ("🔊  Скролл 2 пальцами", "Громкость ТВ"),
             ("🤟  Тап 3 пальцами", "Home"),
             ("⬅️  Свайп влево / Esc", "Выход на Mac"),
         ]
@@ -2094,7 +2156,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let titleH: CGFloat = 28.0
         let sectionH: CGFloat = 16.0
         let rowH: CGFloat = 28.0
-        let rowCount: CGFloat = 6.0
+        let rowCount: CGFloat = 7.0
         let checkH: CGFloat = 18.0
         let btnH: CGFloat = 36.0
         
@@ -2226,6 +2288,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ("👆", Localization.get("guide_g2_action"), Localization.get("guide_g2_desc")),
             ("👆", Localization.get("guide_g3_action"), Localization.get("guide_g3_desc")),
             ("✌️", Localization.get("guide_g4_action"), Localization.get("guide_g4_desc")),
+            ("🔊", Localization.get("guide_g7_action"), Localization.get("guide_g7_desc")),
             ("🤟", Localization.get("guide_g5_action"), Localization.get("guide_g5_desc")),
             ("⬅️", Localization.get("guide_g6_action"), Localization.get("guide_g6_desc")),
         ]
@@ -2373,11 +2436,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let newRect: NSRect
         switch kvmView.activeEdge {
         case .right:
-            newRect = NSRect(x: screenWidth - INITIAL_ZONE_WIDTH, y: 0, width: INITIAL_ZONE_WIDTH, height: screenHeight)
+            newRect = NSRect(x: screenWidth - Config.INITIAL_ZONE_WIDTH, y: 0, width: Config.INITIAL_ZONE_WIDTH, height: screenHeight)
         case .left:
-            newRect = NSRect(x: 0, y: 0, width: INITIAL_ZONE_WIDTH, height: screenHeight)
+            newRect = NSRect(x: 0, y: 0, width: Config.INITIAL_ZONE_WIDTH, height: screenHeight)
         case .top:
-            newRect = NSRect(x: 0, y: screenHeight - INITIAL_ZONE_WIDTH, width: screenWidth, height: INITIAL_ZONE_WIDTH)
+            newRect = NSRect(x: 0, y: screenHeight - Config.INITIAL_ZONE_WIDTH, width: screenWidth, height: Config.INITIAL_ZONE_WIDTH)
         }
         
         window?.setFrame(newRect, display: true)
@@ -2401,11 +2464,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         updateStatusMenu(self.lastStatus)
     }
     
-    @objc func setScrollVeryFast() { changeScrollThreshold(15.0) }
-    @objc func setScrollFast() { changeScrollThreshold(22.0) }
-    @objc func setScrollNormal() { changeScrollThreshold(30.0) }
-    @objc func setScrollSlow() { changeScrollThreshold(45.0) }
-    @objc func setScrollVerySlow() { changeScrollThreshold(60.0) }
+    @objc func setScrollVeryFast() { changeScrollThreshold(30.0) }
+    @objc func setScrollFast() { changeScrollThreshold(44.0) }
+    @objc func setScrollNormal() { changeScrollThreshold(60.0) }
+    @objc func setScrollSlow() { changeScrollThreshold(90.0) }
+    @objc func setScrollVerySlow() { changeScrollThreshold(120.0) }
     
     func changeScrollThreshold(_ value: Double) {
         kvmView?.scrollThreshold = value
@@ -2413,11 +2476,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         updateStatusMenu(self.lastStatus)
     }
     
-    @objc func setSwipeVeryFast() { changeSwipeThreshold(40.0) }
-    @objc func setSwipeFast() { changeSwipeThreshold(60.0) }
-    @objc func setSwipeNormal() { changeSwipeThreshold(80.0) }
-    @objc func setSwipeSlow() { changeSwipeThreshold(110.0) }
-    @objc func setSwipeVerySlow() { changeSwipeThreshold(140.0) }
+    @objc func setSwipeVeryFast() { changeSwipeThreshold(70.0) }
+    @objc func setSwipeFast() { changeSwipeThreshold(105.0) }
+    @objc func setSwipeNormal() { changeSwipeThreshold(140.0) }
+    @objc func setSwipeSlow() { changeSwipeThreshold(192.0) }
+    @objc func setSwipeVerySlow() { changeSwipeThreshold(245.0) }
     
     func changeSwipeThreshold(_ value: Double) {
         kvmView?.swipeThreshold = value
@@ -2518,13 +2581,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc func toggleVoiceInput() {
-        if speechManager.isRecording {
-            speechManager.stopRecording()
+        if speechManager == nil {
+            let sm = SpeechManager()
+            sm.onTranscriptionUpdate = { [weak self] text in
+                DispatchQueue.main.async {
+                    if let textField = self?.inputTextField {
+                        textField.stringValue = text
+                        self?.adjustInputLayout()
+                        
+                        // Мгновенная посимвольная трансляция на ТВ в реальном времени
+                        if let base64Text = text.data(using: .utf8)?.base64EncodedString() {
+                            self?.socketClient.send(cmd: "SET_TEXT \(base64Text)")
+                        }
+                    }
+                }
+            }
+            sm.onStateChange = { [weak self] isRecording in
+                DispatchQueue.main.async {
+                    self?.micButton?.isRecording = isRecording
+                }
+            }
+            sm.onError = { [weak self] errorMsg in
+                print("[Speech Error] \(errorMsg)")
+                DispatchQueue.main.async {
+                    self?.micButton?.isRecording = false
+                }
+            }
+            self.speechManager = sm
+        }
+        
+        guard let sm = speechManager else { return }
+        
+        if sm.isRecording {
+            sm.stopRecording()
         } else {
-            speechManager.requestAuthorization { [weak self] granted in
+            sm.requestAuthorization { [weak self] granted in
                 guard let self = self else { return }
                 if granted {
-                    self.speechManager.startRecording()
+                    self.speechManager?.startRecording()
                 } else {
                     print("[Speech] Authorization denied")
                     let alert = NSAlert()
@@ -2579,45 +2673,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let savedScroll = UserDefaults.standard.object(forKey: "KVM_ScrollThreshold") as? Double {
             kvmView.scrollThreshold = savedScroll
         } else {
-            kvmView.scrollThreshold = 30.0
+            kvmView.scrollThreshold = 60.0
         }
         
         // Загружаем сохраненный порог свайпов из UserDefaults
         if let savedSwipe = UserDefaults.standard.object(forKey: "KVM_SwipeThreshold") as? Double {
             kvmView.swipeThreshold = savedSwipe
         } else {
-            kvmView.swipeThreshold = 50.0
+            kvmView.swipeThreshold = 140.0
         }
         
         window.contentView = kvmView
         window.makeFirstResponder(kvmView)
-        
-        // Настройка колбэков SpeechManager
-        speechManager.onTranscriptionUpdate = { [weak self] text in
-            DispatchQueue.main.async {
-                if let textField = self?.inputTextField {
-                    textField.stringValue = text
-                    
-                    // Мгновенная посимвольная трансляция на ТВ в реальном времени
-                    if let base64Text = text.data(using: .utf8)?.base64EncodedString() {
-                        self?.socketClient.send(cmd: "SET_TEXT \(base64Text)")
-                    }
-                }
-            }
-        }
-        
-        speechManager.onStateChange = { [weak self] isRecording in
-            DispatchQueue.main.async {
-                self?.micButton?.isRecording = isRecording
-            }
-        }
-        
-        speechManager.onError = { [weak self] errorMsg in
-            print("[Speech Error] \(errorMsg)")
-            DispatchQueue.main.async {
-                self?.micButton?.isRecording = false
-            }
-        }
+        // Настройка колбэков SpeechManager отложена до ленивого создания в toggleVoiceInput()
         
         // Делаем иконку программы скрытой из Дока, чтобы не мешала
         // Если нужно показать инструкцию — она сама переключит в .regular
@@ -2655,6 +2723,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // Обновляем текст в уже открытом HUD без повторного показа
                 if let textField = self?.inputTextField, self?.inputWindow != nil {
                     textField.stringValue = text
+                    self?.adjustInputLayout()
                 }
             }
         }
@@ -2806,6 +2875,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func updateStatusMenu(_ status: String) {
+        if status == "CERT_REJECTED" {
+            print("[Swift Socket] TV rejected the TLS certificate! Triggering self-diagnostics alert.")
+            self.shouldAutoConnect = false
+            self.disconnectKVM()
+            
+            #if !TESTING
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.messageText = Localization.get("cert_rejected_title")
+                alert.informativeText = Localization.get("cert_rejected_text")
+                alert.addButton(withTitle: Localization.get("cert_rejected_repair"))
+                alert.addButton(withTitle: Localization.get("cancel"))
+                
+                let response = alert.runModal()
+                if response == .alertFirstButtonReturn {
+                    print("[Swift] Self-Diagnostics: User agreed to re-pair. Sending UNPAIR and starting pairing.")
+                    self.socketClient.send(cmd: "UNPAIR")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        self.socketClient.send(cmd: "CONNECT")
+                    }
+                }
+            }
+            #else
+            // В режиме тестирования симулируем авто-сброс и переподключение для TDD верификации
+            print("[Swift Test] Self-Diagnostics: Auto-resetting pairing credentials in test mode.")
+            self.socketClient.send(cmd: "UNPAIR")
+            self.socketClient.send(cmd: "CONNECT")
+            #endif
+            
+            self.updateStatusMenu("DISCONNECTED")
+            return
+        }
+        
         if status == "CONFLICT" {
             print("[Swift Socket] Connection conflict detected! Disabling autoconnect to prevent port war.")
             self.shouldAutoConnect = false
@@ -2845,10 +2947,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             let menu = NSMenu()
             
-            // Проверяем наличие ранее сохраненного TLS-сертификата сопряжения
+            let bundlePath = Bundle.main.bundlePath
+            let parentDir = (bundlePath as NSString).deletingLastPathComponent
             let currentDir = FileManager.default.currentDirectoryPath
-            let certPath = "\(currentDir)/.credentials/cert.json"
-            let hasCert = FileManager.default.fileExists(atPath: certPath)
+            
+            let possibleCertPaths = [
+                "\(bundlePath)/Contents/Resources/bridge/.credentials/cert.json",
+                "\(parentDir)/.credentials/cert.json",
+                "\(currentDir)/.credentials/cert.json"
+            ]
+            
+            var hasCert = false
+            for path in possibleCertPaths {
+                if FileManager.default.fileExists(atPath: path) {
+                    hasCert = true
+                    break
+                }
+            }
             
             if let button = self.statusItem.button {
                 switch status {
@@ -2950,26 +3065,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             // - Настройка подменю с выбором плавности/чувствительности прокрутки
             let scrollMenu = NSMenu()
-            let threshold = self.kvmView?.scrollThreshold ?? 30.0
+            let threshold = self.kvmView?.scrollThreshold ?? 60.0
             
             let scrollVeryFast = NSMenuItem(title: Localization.get("sens_very_fast"), action: #selector(self.setScrollVeryFast), keyEquivalent: "")
-            scrollVeryFast.state = (threshold == 15.0) ? .on : .off
+            scrollVeryFast.state = (threshold == 30.0) ? .on : .off
             scrollMenu.addItem(scrollVeryFast)
             
             let scrollFast = NSMenuItem(title: Localization.get("sens_fast"), action: #selector(self.setScrollFast), keyEquivalent: "")
-            scrollFast.state = (threshold == 22.0) ? .on : .off
+            scrollFast.state = (threshold == 44.0) ? .on : .off
             scrollMenu.addItem(scrollFast)
             
             let scrollNormal = NSMenuItem(title: Localization.get("sens_medium"), action: #selector(self.setScrollNormal), keyEquivalent: "")
-            scrollNormal.state = (threshold == 30.0) ? .on : .off
+            scrollNormal.state = (threshold == 60.0) ? .on : .off
             scrollMenu.addItem(scrollNormal)
             
             let scrollSlow = NSMenuItem(title: Localization.get("sens_slow"), action: #selector(self.setScrollSlow), keyEquivalent: "")
-            scrollSlow.state = (threshold == 45.0) ? .on : .off
+            scrollSlow.state = (threshold == 90.0) ? .on : .off
             scrollMenu.addItem(scrollSlow)
             
             let scrollVerySlow = NSMenuItem(title: Localization.get("sens_very_slow"), action: #selector(self.setScrollVerySlow), keyEquivalent: "")
-            scrollVerySlow.state = (threshold == 60.0) ? .on : .off
+            scrollVerySlow.state = (threshold == 120.0) ? .on : .off
             scrollMenu.addItem(scrollVerySlow)
             
             let scrollMenuItem = NSMenuItem(title: Localization.get("scroll_sensitivity"), action: nil, keyEquivalent: "")
@@ -2978,26 +3093,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             // - Настройка подменю с выбором плавности/чувствительности свайпов
             let swipeMenu = NSMenu()
-            let swipeThreshold = self.kvmView?.swipeThreshold ?? 80.0
+            let swipeThreshold = self.kvmView?.swipeThreshold ?? 140.0
             
             let swipeVeryFast = NSMenuItem(title: Localization.get("sens_very_fast"), action: #selector(self.setSwipeVeryFast), keyEquivalent: "")
-            swipeVeryFast.state = (swipeThreshold == 40.0) ? .on : .off
+            swipeVeryFast.state = (swipeThreshold == 70.0) ? .on : .off
             swipeMenu.addItem(swipeVeryFast)
             
             let swipeFast = NSMenuItem(title: Localization.get("sens_fast"), action: #selector(self.setSwipeFast), keyEquivalent: "")
-            swipeFast.state = (swipeThreshold == 60.0) ? .on : .off
+            swipeFast.state = (swipeThreshold == 105.0) ? .on : .off
             swipeMenu.addItem(swipeFast)
             
             let swipeNormal = NSMenuItem(title: Localization.get("sens_medium"), action: #selector(self.setSwipeNormal), keyEquivalent: "")
-            swipeNormal.state = (swipeThreshold == 80.0) ? .on : .off
+            swipeNormal.state = (swipeThreshold == 140.0) ? .on : .off
             swipeMenu.addItem(swipeNormal)
             
             let swipeSlow = NSMenuItem(title: Localization.get("sens_slow"), action: #selector(self.setSwipeSlow), keyEquivalent: "")
-            swipeSlow.state = (swipeThreshold == 110.0) ? .on : .off
+            swipeSlow.state = (swipeThreshold == 192.0) ? .on : .off
             swipeMenu.addItem(swipeSlow)
             
             let swipeVerySlow = NSMenuItem(title: Localization.get("sens_very_slow"), action: #selector(self.setSwipeVerySlow), keyEquivalent: "")
-            swipeVerySlow.state = (swipeThreshold == 140.0) ? .on : .off
+            swipeVerySlow.state = (swipeThreshold == 245.0) ? .on : .off
             swipeMenu.addItem(swipeVerySlow)
             
             let swipeMenuItem = NSMenuItem(title: Localization.get("swipe_sensitivity"), action: nil, keyEquivalent: "")
@@ -3054,6 +3169,61 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
 
+    func adjustInputLayout() {
+        guard let window = self.inputWindow,
+              let textField = self.inputTextField,
+              let container = self.inputContainer,
+              let titleLabel = self.inputTitleLabel,
+              let helpLabel = self.inputHelpLabel,
+              let mic = self.micButton else { return }
+        
+        let containerWidth = 500.0 - 40.0 - 52.0 // 408
+        let textFieldWidth = containerWidth - 16.0 // 392
+        
+        // Рассчитываем необходимую высоту текстового поля на основе текста
+        let constraintSize = NSSize(width: textFieldWidth, height: CGFloat.greatestFiniteMagnitude)
+        let size = textField.cell?.cellSize(forBounds: NSRect(origin: .zero, size: constraintSize)) ?? NSSize(width: textFieldWidth, height: 26)
+        
+        let minTextHeight: CGFloat = 26.0
+        let textHeight = max(minTextHeight, ceil(size.height))
+        let deltaHeight = textHeight - minTextHeight
+        
+        let newContainerHeight = 42.0 + deltaHeight
+        let newWindowHeight = 130.0 + deltaHeight
+        
+        if textField.frame.height != textHeight {
+            // Вычисляем новую позицию окна, сохраняя неподвижным верхний край
+            let oldFrame = window.frame
+            let oldTop = oldFrame.origin.y + oldFrame.size.height
+            let newY = oldTop - newWindowHeight
+            let newWindowFrame = NSRect(x: oldFrame.origin.x, y: newY, width: oldFrame.size.width, height: newWindowHeight)
+            
+            // Устанавливаем новый фрейм для окна
+            window.setFrame(newWindowFrame, display: true, animate: false)
+            
+            // Обновляем фрейм визуального оверлея
+            if let effectView = window.contentView {
+                effectView.frame = NSRect(x: 0, y: 0, width: oldFrame.size.width, height: newWindowHeight)
+            }
+            
+            // Обновляем позицию заголовка (привязан к верхнему краю)
+            titleLabel.frame = NSRect(x: 20, y: newWindowHeight - 30, width: oldFrame.size.width - 40, height: 16)
+            
+            // Обновляем контейнер текстового поля
+            container.frame = NSRect(x: 20, y: 45, width: containerWidth, height: newContainerHeight)
+            
+            // Обновляем само текстовое поле внутри контейнера
+            textField.frame = NSRect(x: 8, y: 8, width: textFieldWidth, height: textHeight)
+            
+            // Обновляем кнопку микрофона, центрируя ее вертикально относительно нового контейнера
+            let newMicY = 45.0 + deltaHeight / 2.0
+            mic.frame = NSRect(x: 20 + containerWidth + 10, y: newMicY, width: 42, height: 42)
+            
+            // helpLabel остается привязанным к низу (y: 18)
+            helpLabel.frame = NSRect(x: 20, y: 18, width: oldFrame.size.width - 40, height: 14)
+        }
+    }
+
     func showInputWindow(initialText: String) {
         if let inputWindow = self.inputWindow {
             if let textField = self.inputTextField {
@@ -3078,7 +3248,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let windowWidth = 500.0
         let windowHeight = 130.0
         let x = (screenFrame.width - windowWidth) / 2.0 + screenFrame.origin.x
-        let y = (screenFrame.height - windowHeight) / 2.0 + screenFrame.origin.y
+        let y = (screenFrame.height - windowHeight) * 0.65 + screenFrame.origin.y
         let frame = NSRect(x: x, y: y, width: windowWidth, height: windowHeight)
         
         let window = TextInputWindow(
@@ -3107,6 +3277,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         titleLabel.font = NSFont.systemFont(ofSize: 11, weight: .bold)
         titleLabel.alignment = .left
         effectView.addSubview(titleLabel)
+        self.inputTitleLabel = titleLabel
         
         let containerWidth = windowWidth - 40 - 52 // 408
         let container = StyledTextFieldContainer(frame: NSRect(x: 20, y: 45, width: containerWidth, height: 42))
@@ -3123,6 +3294,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         textField.focusRingType = .none
         textField.delegate = self
         textField.stringValue = initialText
+        textField.cell?.isScrollable = false
+        textField.cell?.wraps = true
+        textField.maximumNumberOfLines = 0
         
         textField.onFocusChange = { [weak container] isFocused in
             container?.isFocused = isFocused
@@ -3144,6 +3318,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         helpLabel.font = NSFont.systemFont(ofSize: 10, weight: .regular)
         helpLabel.alignment = .left
         effectView.addSubview(helpLabel)
+        self.inputHelpLabel = helpLabel
         
         self.inputWindow = window
         
@@ -3155,6 +3330,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if !initialText.isEmpty {
             textField.currentEditor()?.selectAll(nil)
         }
+        adjustInputLayout()
     }
     
     @objc func submitText() {
@@ -3177,12 +3353,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func dismissInputWindow(cancelled: Bool) {
         guard let window = self.inputWindow else { return }
         
-        speechManager.stopRecording()
+        // speechManager.stopRecording()
         
         window.orderOut(nil)
         self.inputWindow = nil
         self.inputTextField = nil
         self.inputContainer = nil
+        self.inputTitleLabel = nil
+        self.inputHelpLabel = nil
         self.micButton = nil
         self.isTyping = false
         
@@ -3246,6 +3424,10 @@ extension AppDelegate: NSTextFieldDelegate {
         if let base64Text = text.data(using: .utf8)?.base64EncodedString() {
             socketClient.send(cmd: "SET_TEXT \(base64Text)")
         }
+        
+        if textField === self.inputTextField {
+            adjustInputLayout()
+        }
     }
     
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
@@ -3261,7 +3443,373 @@ extension AppDelegate: NSTextFieldDelegate {
         return false
     }
 }
+#if TESTING
+import Cocoa
+import Foundation
+import AppKit
 
+// Мок для состояния кнопок мыши
+class MockMouseStateProvider: MouseStateProviding {
+    var pressedMouseButtons: Int = 0
+}
+
+// Мок для симуляции сессии перетаскивания (Drag & Drop)
+class MockDraggingInfo: NSObject, NSDraggingInfo {
+    var draggingDestinationWindow: NSWindow? { return nil }
+    var draggingSourceOperationMask: NSDragOperation { return .copy }
+    var draggingLocation: NSPoint { return .zero }
+    var draggingSource: Any? { return nil }
+    var draggingPasteboard: NSPasteboard { return NSPasteboard.withUniqueName() }
+    var draggingSequenceNumber: Int { return 0 }
+    
+    var draggingFormation: NSDraggingFormation {
+        get { return .default }
+        set {}
+    }
+    var animatesToDestination: Bool {
+        get { return false }
+        set {}
+    }
+    var numberOfValidItemsForDrop: Int {
+        get { return 0 }
+        set {}
+    }
+    
+    func enumerateDraggingItems(
+        options: NSDraggingItemEnumerationOptions = [],
+        for view: NSView?,
+        classes: [AnyClass],
+        searchOptions: [NSPasteboard.ReadingOptionKey : Any] = [:],
+        using block: @escaping (NSDraggingItem, Int, UnsafeMutablePointer<ObjCBool>) -> Void
+    ) {}
+    
+    var springLoadingHighlight: NSSpringLoadingHighlight { return .none }
+    
+    var draggedImageLocation: NSPoint { return .zero }
+    var draggedImage: NSImage? { return nil }
+    func slideDraggedImage(to screenPoint: NSPoint) {}
+    func resetSpringLoading() {}
+}
+
+class KVMTests {
+    func runAllTests() -> Bool {
+        var allPassed = true
+        
+        print("======== ЗАПУСК ЮНИТ-ТЕСТОВ И ЮЗАБИЛИТИ-ТЕСТОВ (TDD) ========")
+        
+        let tests: [(String, () -> Bool)] = [
+            ("testNormalMouseEntered_StartsTimer", testNormalMouseEntered_StartsTimer),
+            ("testMouseEnteredWithButtonPressed_DoesNotStartTimer", testMouseEnteredWithButtonPressed_DoesNotStartTimer),
+            ("testDraggingEntered_InvalidatesTimerAndBlocksActivation", testDraggingEntered_InvalidatesTimerAndBlocksActivation),
+            ("testSelfDiagnostics_CertRejected", testSelfDiagnostics_CertRejected),
+            ("testKeyboardMapping_CyrillicAndLatin", testKeyboardMapping_CyrillicAndLatin),
+            ("testTextInputWindow_Initialization", testTextInputWindow_Initialization),
+            ("testTextInputWindow_DynamicResizing", testTextInputWindow_DynamicResizing),
+            ("testKVMView_SensitivitySettings", testKVMView_SensitivitySettings),
+            ("testWelcomeGuideAndHelpOverlay_Initialization", testWelcomeGuideAndHelpOverlay_Initialization)
+        ]
+        
+        for (name, test) in tests {
+            if runTest(name: name, test: test) {
+                print("✅ \(name): ПРОЙДЕН")
+            } else {
+                print("❌ \(name): ПРОВАЛЕН")
+                allPassed = false
+            }
+        }
+        
+        print("=============================================================")
+        return allPassed
+    }
+    
+    private func runTest(name: String, test: () -> Bool) -> Bool {
+        return test()
+    }
+    
+    func testNormalMouseEntered_StartsTimer() -> Bool {
+        let view = KVMView(frame: .zero)
+        let mockProvider = MockMouseStateProvider()
+        mockProvider.pressedMouseButtons = 0
+        view.mouseStateProvider = mockProvider
+        
+        let dummyEvent = NSEvent()
+        view.mouseEntered(with: dummyEvent)
+        
+        guard let timer = view.activationTimer else {
+            print("   -> Ошибка: таймер не был запущен")
+            return false
+        }
+        
+        return timer.isValid
+    }
+    
+    func testMouseEnteredWithButtonPressed_DoesNotStartTimer() -> Bool {
+        let view = KVMView(frame: .zero)
+        let mockProvider = MockMouseStateProvider()
+        mockProvider.pressedMouseButtons = 1
+        view.mouseStateProvider = mockProvider
+        
+        let dummyEvent = NSEvent()
+        view.mouseEntered(with: dummyEvent)
+        
+        if view.activationTimer != nil {
+            print("   -> Ошибка: таймер был запущен, несмотря на нажатую кнопку мыши")
+            return false
+        }
+        
+        return true
+    }
+    
+    func testDraggingEntered_InvalidatesTimerAndBlocksActivation() -> Bool {
+        let view = KVMView(frame: .zero)
+        
+        let mockProvider = MockMouseStateProvider()
+        mockProvider.pressedMouseButtons = 0
+        view.mouseStateProvider = mockProvider
+        view.mouseEntered(with: NSEvent())
+        
+        if view.activationTimer == nil {
+            print("   -> Ошибка инициализации теста: таймер не запустился")
+            return false
+        }
+        
+        let mockDragInfo = MockDraggingInfo()
+        let resultOperation = view.draggingEntered(mockDragInfo)
+        
+        if view.activationTimer != nil {
+            print("   -> Ошибка: таймер не был сброшен при входе Drag-сессии")
+            return false
+        }
+        
+        if !resultOperation.isEmpty {
+            print("   -> Ошибка: возвращен непустой NSDraggingOperation (\(resultOperation))")
+            return false
+        }
+        
+        return true
+    }
+    
+    // Тест 4: Самодиагностика при отклонении сертификата безопасности
+    func testSelfDiagnostics_CertRejected() -> Bool {
+        let delegate = AppDelegate()
+        delegate.socketClient = SocketClient() // Мокаем для изоляции сети
+        
+        delegate.shouldAutoConnect = true
+        delegate.updateStatusMenu("CERT_REJECTED")
+        
+        // Должно выключить автоподключение для исключения бесконечной циклической перегрузки ТВ
+        if delegate.shouldAutoConnect {
+            print("   -> Ошибка: shouldAutoConnect не был выставлен в false при CERT_REJECTED")
+            return false
+        }
+        
+        return true
+    }
+    
+    // Тест 5: Раскладка клавиатуры (Латиница, Кириллица, спецсимволы)
+    func testKeyboardMapping_CyrillicAndLatin() -> Bool {
+        let view = KVMView(frame: .zero)
+        
+        // 1. Проверяем стандартную латиницу (EN)
+        guard view.mapCharToKeyCode("A") == "KEYCODE_A",
+              view.mapCharToKeyCode("z") == "KEYCODE_Z",
+              view.mapCharToKeyCode(" ") == "KEYCODE_SPACE" else {
+            print("   -> Ошибка: неверный маппинг латиницы")
+            return false
+        }
+        
+        // 2. Проверяем кириллицу (RU)
+        guard view.mapCharToKeyCode("Ф") == "KEYCODE_A",
+              view.mapCharToKeyCode("ы") == "KEYCODE_S",
+              view.mapCharToKeyCode("ю") == "KEYCODE_PERIOD",
+              view.mapCharToKeyCode("ё") == "KEYCODE_GRAVE" else {
+            print("   -> Ошибка: неверный маппинг кириллицы (QWERTY)")
+            return false
+        }
+        
+        // 3. Проверяем спецсимволы, требующие фолбэка (должны возвращать nil)
+        if view.mapCharToKeyCode("?") != nil || view.mapCharToKeyCode("№") != nil {
+            print("   -> Ошибка: спецсимволы должны возвращать nil для фолбэка на Base64 CHAR")
+            return false
+        }
+        
+        return true
+    }
+    
+    // Тест 6: Окно текстового ввода (HUD) и графические кнопки/элементы
+    func testTextInputWindow_Initialization() -> Bool {
+        let delegate = AppDelegate()
+        
+        // Инициализируем HUD окно с начальным текстом "Test text"
+        delegate.showInputWindow(initialText: "Test text")
+        
+        guard let window = delegate.inputWindow else {
+            print("   -> Ошибка: окно TextInputWindow не было создано")
+            return false
+        }
+        
+        // Проверяем характеристики окна
+        if window.level != .statusBar {
+            print("   -> Ошибка: TextInputWindow должно иметь статус statusBar")
+            return false
+        }
+        
+        // Проверяем текстовое поле ввода
+        guard let textField = delegate.inputTextField else {
+            print("   -> Ошибка: FocusTextField не создан")
+            return false
+        }
+        
+        if textField.stringValue != "Test text" {
+            print("   -> Ошибка: значение текстового поля не соответствует переданному")
+            return false
+        }
+        
+        // Проверяем наличие кнопки микрофона (MicButton)
+        guard let mic = delegate.micButton else {
+            print("   -> Ошибка: Кнопка микрофона MicButton не создана")
+            return false
+        }
+        
+        // Проверяем изменение состояния кнопки микрофона при активации записи
+        mic.isRecording = true
+        if !mic.isRecording {
+            print("   -> Ошибка: не удалось выставить состояние isRecording на кнопке микрофона")
+            return false
+        }
+        
+        // Закрываем окно (dismiss)
+        delegate.dismissInputWindow(cancelled: true)
+        if delegate.inputWindow != nil {
+            print("   -> Ошибка: окно не было уничтожено после dismiss")
+            return false
+        }
+        
+        return true
+    }
+    
+    // Тест: Динамическое изменение размеров поля ввода при длинном тексте
+    func testTextInputWindow_DynamicResizing() -> Bool {
+        let delegate = AppDelegate()
+        
+        // 1. Инициализируем HUD окно с коротким текстом
+        delegate.showInputWindow(initialText: "Short text")
+        
+        guard let window = delegate.inputWindow,
+              let textField = delegate.inputTextField,
+              let container = delegate.inputContainer else {
+            print("   -> Ошибка: компоненты окна ввода не были созданы")
+            return false
+        }
+        
+        // Проверяем начальные характеристики
+        let initialWindowHeight = window.frame.height
+        let initialTextFieldHeight = textField.frame.height
+        let initialTop = window.frame.origin.y + initialWindowHeight
+        
+        // По умолчанию wraps должно быть включено, isScrollable выключено
+        if textField.cell?.wraps != true || textField.cell?.isScrollable == true {
+            print("   -> Ошибка: свойства переноса текста на FocusTextField не настроены")
+            return false
+        }
+        
+        // 2. Имитируем длинный многострочный текст, превышающий размеры
+        let longText = "Это очень-очень длинный текст, который гарантированно займет несколько строк в нашем поле ввода, так как он превышает ширину контейнера в 392 пикселя!"
+        textField.stringValue = longText
+        
+        // Вызываем перерасчет
+        delegate.adjustInputLayout()
+        
+        let newWindowHeight = window.frame.height
+        let newTextFieldHeight = textField.frame.height
+        let newTop = window.frame.origin.y + newWindowHeight
+        
+        // Проверяем, что размеры увеличились
+        if newTextFieldHeight <= initialTextFieldHeight {
+            print("   -> Ошибка: высота текстового поля не увеличилась после длинного текста (было: \(initialTextFieldHeight), стало: \(newTextFieldHeight))")
+            return false
+        }
+        
+        if newWindowHeight <= initialWindowHeight {
+            print("   -> Ошибка: высота окна не увеличилась")
+            return false
+        }
+        
+        // Проверяем, что верхняя грань осталась неподвижной (с погрешностью 0.5 пикселя)
+        if abs(newTop - initialTop) > 0.5 {
+            print("   -> Ошибка: верхняя грань окна сместилась (было: \(initialTop), стало: \(newTop))")
+            return false
+        }
+        
+        // Закрываем окно
+        delegate.dismissInputWindow(cancelled: true)
+        
+        return true
+    }
+    
+    // Тест 7: Чувствительность жестов тачпада
+    func testKVMView_SensitivitySettings() -> Bool {
+        let view = KVMView(frame: .zero)
+        
+        // По умолчанию чувствительность должна быть средней (medium)
+        if view.scrollThreshold != 60.0 || view.swipeThreshold != 140.0 {
+            print("   -> Ошибка: дефолтные пороги чувствительности сбиты")
+            return false
+        }
+        
+        // Симулируем изменение чувствительности на Very Fast (очень быстрая)
+        view.scrollThreshold = 30.0
+        view.swipeThreshold = 70.0
+        
+        if view.scrollThreshold != 30.0 || view.swipeThreshold != 70.0 {
+            print("   -> Ошибка: не удалось изменить пороги чувствительности")
+            return false
+        }
+        
+        return true
+    }
+    
+    // Тест 8: Приветственное руководство и оверлей подсказок (Welcome Guide & Help Overlay)
+    func testWelcomeGuideAndHelpOverlay_Initialization() -> Bool {
+        let delegate = AppDelegate()
+        
+        // 1. Проверяем оверлей подсказок (Help Overlay)
+        delegate.showHelpOverlay()
+        guard let helpWindow = delegate.helpOverlayWindow else {
+            print("   -> Ошибка: HelpOverlayWindow не создан")
+            return false
+        }
+        
+        if helpWindow.level != .floating {
+            print("   -> Ошибка: HelpOverlayWindow должен быть в режиме .floating")
+            return false
+        }
+        
+        delegate.hideHelpOverlay()
+        
+        // 2. Проверяем приветственное руководство (Welcome Guide)
+        delegate.showWelcomeGuide()
+        guard let guideWindow = delegate.welcomeGuideWindow else {
+            print("   -> Ошибка: welcomeGuideWindow не создан")
+            return false
+        }
+        
+        if guideWindow.styleMask.contains(.resizable) {
+            print("   -> Ошибка: приветственное окно не должно менять размер")
+            return false
+        }
+        
+        guideWindow.orderOut(nil)
+        delegate.welcomeGuideWindow = nil
+        
+        return true
+    }
+}
+
+let tester = KVMTests()
+let success = tester.runAllTests()
+exit(success ? 0 : 1)
+#else
 setbuf(stdout, nil)
 setbuf(stderr, nil)
 
@@ -3269,3 +3817,4 @@ let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
 app.run()
+#endif

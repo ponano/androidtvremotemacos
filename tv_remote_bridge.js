@@ -4,6 +4,19 @@ const net = require('net');
 const { AndroidRemote, RemoteKeyCode, RemoteDirection } = require('androidtv-remote');
 const { remoteMessageManager } = require('androidtv-remote/dist/remote/RemoteMessageManager');
 
+// Глобальный перехватчик ошибок консоли для самодиагностики SSL/TLS сертификатов
+const originalConsoleError = console.error;
+console.error = function(...args) {
+    originalConsoleError.apply(console, args);
+    const msg = args.map(a => String(a || "")).join(" ");
+    if (msg.toLowerCase().includes("certificate unknown") || msg.toLowerCase().includes("alert number 46")) {
+        originalConsoleError("[Bridge] Self-Diagnostics (Console Intercept): TV explicitly rejected secure certificate (SSL Alert 46). Sending CERT_REJECTED status.");
+        if (typeof sendStatus === "function") {
+            sendStatus("CERT_REJECTED");
+        }
+    }
+};
+
 // Рантайм-перехватчик входящих Protobuf сообщений для синхронизации текстового ввода
 let latestAppInfo = null;
 let latestTextFieldStatus = null;
@@ -133,7 +146,33 @@ let options = {
     cert: cert
 };
 
+function setupAndroidRemote(remoteInstance) {
+    let currentRemoteManager = null;
+    Object.defineProperty(remoteInstance, 'remoteManager', {
+        get() {
+            return currentRemoteManager;
+        },
+        set(val) {
+            currentRemoteManager = val;
+            if (val) {
+                console.log("[Bridge] New RemoteManager instance detected! Subscribing to events.");
+                val.on('close', (hasError) => {
+                    console.log("[Bridge] RemoteManager emitted close event (hasError:", hasError, ")");
+                    reconnectTV();
+                });
+                val.on('error', (err) => {
+                    console.error("[Bridge] RemoteManager emitted error event:", err.message || err);
+                    reconnectTV();
+                });
+            }
+        },
+        configurable: true,
+        enumerable: true
+    });
+}
+
 let androidRemote = new AndroidRemote(host, options);
+setupAndroidRemote(androidRemote);
 let status = "DISCONNECTED"; // "DISCONNECTED", "NEED_PIN", "CONNECTING", "READY"
 let activeSocket = null;
 
@@ -416,17 +455,19 @@ androidRemote.on('unpaired', () => {
 });
 
 androidRemote.on('error', (err) => {
-    console.error("[Bridge] Connection error:", err.message || err);
+    const errMsg = String(err.message || err);
+    console.error("[Bridge] Connection error:", errMsg);
+    
+    // Самодиагностика: проверка на отклонение сертификата безопасности телевизором (SSL Alert 46)
+    if (errMsg.toLowerCase().includes("certificate unknown") || errMsg.toLowerCase().includes("alert number 46")) {
+        console.warn("[Bridge] Self-Diagnostics: TV explicitly rejected secure certificate (SSL Alert 46). Sending CERT_REJECTED status.");
+        status = "DISCONNECTED";
+        sendStatus("CERT_REJECTED");
+        return; // Останавливаем бесконечный цикл переподключения с недействительным сертификатом
+    }
+    
     reconnectTV();
 });
-
-if (androidRemote.remoteManager) {
-    androidRemote.remoteManager.on('close', (hasError) => {
-        console.log("[Bridge] RemoteManager emitted close event (hasError:", hasError, ")");
-        reconnectTV();
-    });
-}
-
 // Start local TCP Server binding strictly to loopback 127.0.0.1
 const server = net.createServer((socket) => {
     console.log("[Bridge] macOS Swift client connected.");
@@ -562,6 +603,7 @@ function handleCommand(cmd) {
                 androidRemote.stop();
             } catch(e) {}
             androidRemote = new AndroidRemote(host, options);
+            setupAndroidRemote(androidRemote);
             
             // Переподписываемся на события нового экземпляра
             androidRemote.on('secret', () => {
@@ -598,13 +640,6 @@ function handleCommand(cmd) {
                 console.error("[Bridge] Connection error:", err.message || err);
                 reconnectTV();
             });
-            if (androidRemote.remoteManager) {
-                androidRemote.remoteManager.on('close', (hasError) => {
-                    console.log("[Bridge] RemoteManager emitted close event (hasError:", hasError, ")");
-                    reconnectTV();
-                });
-            }
-            
             androidRemote.start().then(() => {
                 console.log("[Bridge] Direct CONNECT: start() resolved successfully!");
                 reconnectAttempt = 0;

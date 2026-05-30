@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.ponano.pano</string>
+    <string>com.ponano.pano.remote</string>
     <key>CFBundleName</key>
     <string>Pano</string>
     <key>CFBundleDisplayName</key>

@@ -26,6 +26,14 @@ mkdir -p tv_kvm.app/Contents/Resources
 cp -f Info.plist tv_kvm.app/Contents/Info.plist
 cp -rf Resources/* tv_kvm.app/Contents/Resources/
 
+# Упаковываем Node.js мост и зависимости внутрь бандла для автономного запуска (Launchpad / /Applications)
+mkdir -p tv_kvm.app/Contents/Resources/bridge
+cp -f tv_remote_bridge.js tv_kvm.app/Contents/Resources/bridge/
+cp -f package.json tv_kvm.app/Contents/Resources/bridge/
+cp -f package-lock.json tv_kvm.app/Contents/Resources/bridge/
+cp -rf .credentials tv_kvm.app/Contents/Resources/bridge/ 2>/dev/null || true
+cp -rf node_modules tv_kvm.app/Contents/Resources/bridge/
+
 echo "===================================================="
 echo " 🛠️ Компиляция нативного KVM-моста на Swift..."
 echo "===================================================="
@@ -46,8 +54,8 @@ echo " 🚀 Запуск KVM-моста на базе Google TV Remote V2..."
 echo " Нажмите Ctrl+C в этом окне для выключения программы."
 echo "===================================================="
 
-# Запуск Swift-клиента из бандла (Node.js мост запускается автоматически из Swift)
-./tv_kvm.app/Contents/MacOS/tv_kvm &
+# Запуск Swift-клиента как полноценного бандла (для корректной работы разрешений TCC и микрофона)
+open -W tv_kvm.app &
 SWIFT_PID=$!
 
 # Функция автоматической очистки процессов при прерывании
