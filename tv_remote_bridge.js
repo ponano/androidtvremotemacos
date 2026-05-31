@@ -5,13 +5,71 @@ const net = require('net');
 const { AndroidRemote, RemoteKeyCode, RemoteDirection } = require('androidtv-remote');
 const { remoteMessageManager } = require('androidtv-remote/dist/remote/RemoteMessageManager');
 
-// Глобальный перехватчик ошибок консоли для самодиагностики SSL/TLS сертификатов
+// Глобальный перехватчик консоли и асинхронное логирование в файл bridge.log
+const originalConsoleLog = console.log;
+const originalConsoleWarn = console.warn;
 const originalConsoleError = console.error;
+const originalConsoleDebug = console.debug || console.log;
+
+const logDir = path.join(os.homedir(), 'Library', 'Logs', 'tv_kvm');
+if (!fs.existsSync(logDir)) {
+    try {
+        fs.mkdirSync(logDir, { recursive: true });
+    } catch (e) {
+        originalConsoleError("Failed to create log directory:", e.message);
+    }
+}
+const logPath = path.join(logDir, 'bridge.log');
+
+function appendToLogFile(formattedMessage) {
+    fs.appendFile(logPath, formattedMessage, (err) => {
+        if (err) {
+            originalConsoleError("[Bridge Logger Error] Failed to write to log file:", err.message);
+        }
+    });
+}
+
+function formatLogMessage(level, msg) {
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 23);
+    return `[${timestamp}] [${level}] [Bridge] ${msg}\n`;
+}
+
+function logToFile(level, ...args) {
+    const msg = args.map(a => {
+        if (a instanceof Error) return a.stack || a.message;
+        return typeof a === 'object' ? JSON.stringify(a) : String(a);
+    }).join(" ");
+    const formatted = formatLogMessage(level, msg);
+    appendToLogFile(formatted);
+    return { formatted, msg };
+}
+
+console.log = function(...args) {
+    const { formatted } = logToFile('INFO', ...args);
+    process.stdout.write(formatted);
+};
+
+console.warn = function(...args) {
+    const { formatted } = logToFile('WARN', ...args);
+    process.stdout.write(formatted);
+};
+
+console.debug = function(...args) {
+    const { formatted } = logToFile('DEBUG', ...args);
+    process.stdout.write(formatted);
+};
+
 console.error = function(...args) {
-    originalConsoleError.apply(console, args);
-    const msg = args.map(a => String(a || "")).join(" ");
-    if (msg.toLowerCase().includes("certificate unknown") || msg.toLowerCase().includes("alert number 46")) {
-        originalConsoleError("[Bridge] Self-Diagnostics (Console Intercept): TV explicitly rejected secure certificate (SSL Alert 46). Sending CERT_REJECTED status.");
+    const { formatted, msg } = logToFile('ERROR', ...args);
+    process.stderr.write(formatted);
+    
+    // Перехват ошибок SSL для самодиагностики
+    const lower = msg.toLowerCase();
+    if (lower.includes("certificate unknown") || lower.includes("alert number 46")) {
+        const alertMsg = "[Bridge] Self-Diagnostics (Console Intercept): TV explicitly rejected secure certificate (SSL Alert 46). Sending CERT_REJECTED status.";
+        const formattedAlert = formatLogMessage('ERROR', alertMsg);
+        appendToLogFile(formattedAlert);
+        process.stderr.write(formattedAlert);
         if (typeof sendStatus === "function") {
             sendStatus("CERT_REJECTED");
         }
@@ -51,9 +109,7 @@ function handleIncomingImeMessage(message) {
             if (ime.appInfo.appPackage) {
                 console.log(`[Bridge] Active app package: ${ime.appInfo.appPackage}`);
                 currentActiveApp = ime.appInfo.appPackage;
-                if (activeSocket) {
-                    activeSocket.write(`APP ${ime.appInfo.appPackage}\n`);
-                }
+                broadcast(`APP ${ime.appInfo.appPackage}\n`);
             }
         }
         
@@ -78,10 +134,10 @@ function handleIncomingImeMessage(message) {
                 // Браузеры (BrowseHere, etc.) спамят KeyInject при открытии, что ложно
                 // активировало HUD и выбивало KVM из режима управления тачпадом.
                 // HUD вызывается ТОЛЬКО из remoteImeShowRequest (явный запрос от пользователя).
-                if (isHudActive && !isEcho && activeSocket) {
+                if (isHudActive && !isEcho && activeSockets.size > 0) {
                     // Если HUD уже открыт, обновляем текст в реальном времени
                     const base64Val = Buffer.from(currentText || "").toString('base64');
-                    activeSocket.write(`IME_UPDATE ${base64Val}\n`);
+                    broadcast(`IME_UPDATE ${base64Val}\n`);
                 }
             }
         }
@@ -178,7 +234,17 @@ function setupAndroidRemote(remoteInstance) {
 let androidRemote = new AndroidRemote(host, options);
 setupAndroidRemote(androidRemote);
 let status = "DISCONNECTED"; // "DISCONNECTED", "NEED_PIN", "CONNECTING", "READY"
-let activeSocket = null;
+let activeSockets = new Set();
+
+function broadcast(message) {
+    for (let socket of activeSockets) {
+        try {
+            socket.write(message);
+        } catch (e) {
+            console.error("[Bridge Error] Broadcast write failed:", e.message);
+        }
+    }
+}
 
 let currentText = "";
 let cursorPosition = 0;
@@ -189,11 +255,9 @@ let isHudActive = false; // Tracks whether the macOS input HUD is currently acti
 let lastDismissedSessionCounter = 0; // Tracks the ID of the text session dismissed by the user on Mac
 
 function triggerImeShow(text) {
-    if (activeSocket) {
-        const base64Val = Buffer.from(text || "").toString('base64');
-        activeSocket.write(`IME_SHOW ${base64Val}\n`);
-        isHudActive = true;
-    }
+    const base64Val = Buffer.from(text || "").toString('base64');
+    broadcast(`IME_SHOW ${base64Val}\n`);
+    isHudActive = true;
 }
 
 function sendImeText(text) {
@@ -339,9 +403,7 @@ function sendKeyDirect(keyName, isTrackpad) {
 
 // Send status line to local TCP socket
 function sendStatus(currentStatus) {
-    if (activeSocket) {
-        activeSocket.write(`STATUS ${currentStatus}\n`);
-    }
+    broadcast(`STATUS ${currentStatus}\n`);
 }
 
 // Set up remote event listeners
@@ -475,10 +537,10 @@ androidRemote.on('error', (err) => {
 // Start local TCP Server binding strictly to loopback 127.0.0.1
 const server = net.createServer((socket) => {
     console.log("[Bridge] macOS Swift client connected.");
-    activeSocket = socket;
+    activeSockets.add(socket);
 
-    // Send the current status immediately upon connection
-    sendStatus(status);
+    // Send the current status immediately upon connection to this specific socket
+    socket.write(`STATUS ${status}\n`);
 
     let buffer = "";
     socket.on('data', (data) => {
@@ -493,8 +555,8 @@ const server = net.createServer((socket) => {
 
     socket.on('close', () => {
         console.log("[Bridge] macOS Swift client disconnected.");
-        if (activeSocket === socket) {
-            activeSocket = null;
+        activeSockets.delete(socket);
+        if (activeSockets.size === 0) {
             isHudActive = false;
         }
     });
@@ -716,13 +778,13 @@ function gracefulShutdown(signal) {
         androidRemote.stop();
     } catch(e) {}
     
-    // Закрываем TCP-клиент
-    if (activeSocket) {
+    // Закрываем TCP-клиенты
+    for (let socket of activeSockets) {
         try {
-            activeSocket.destroy();
+            socket.destroy();
         } catch(e) {}
-        activeSocket = null;
     }
+    activeSockets.clear();
     
     // Закрываем TCP-сервер (освобождаем порт 12345)
     server.close(() => {

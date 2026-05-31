@@ -27,7 +27,7 @@ ALL_PASSED=true
 echo -e "\n${BLUE}👉 ЭТАП 1: Запуск тестов Cocoa-клиента (Swift)...${NC}"
 echo "   🛠️ Компиляция Swift в TDD режиме (-DTESTING)..."
 
-swiftc tv_kvm.swift -DTESTING -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Info.plist -framework Speech -framework AVFoundation -o tv_kvm_tests 2>/dev/null
+swiftc Sources/App/*.swift Sources/Models/*.swift Sources/Services/*.swift Sources/UI/*.swift Sources/Tests/*.swift -DTESTING -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Info.plist -framework Speech -framework AVFoundation -o tv_kvm_tests 2>/dev/null
 
 if [ $? -ne 0 ]; then
   echo -e "   ${RED}❌ Ошибка компиляции Swift-тестов.${NC}"

@@ -32,12 +32,6 @@ echo "Шаг 2: Компиляция iconset в файл .icns с помощью
 iconutil -c icns "$ICONSET_DIR" --out "$ICNS_FILE"
 
 echo "Шаг 3: Обновление иконки в уже собранных бандлах приложений..."
-if [ -d "$WORKSPACE_DIR/tv_kvm.app" ]; then
-    echo "Обновление tv_kvm.app..."
-    cp -f "$ICNS_FILE" "$WORKSPACE_DIR/tv_kvm.app/Contents/Resources/AppIcon.icns"
-    touch "$WORKSPACE_DIR/tv_kvm.app"
-fi
-
 if [ -d "$WORKSPACE_DIR/Pano.app" ]; then
     echo "Обновление Pano.app..."
     cp -f "$ICNS_FILE" "$WORKSPACE_DIR/Pano.app/Contents/Resources/AppIcon.icns"
