@@ -63,6 +63,36 @@ fi
 echo "   ✅ Архив $ZIP_NAME успешно создан."
 
 echo "===================================================="
+echo " 💿 Создание образа диска Pano.dmg..."
+echo "===================================================="
+DMG_NAME="Pano.dmg"
+rm -f "$DMG_NAME"
+
+# Создаем временную директорию сборки DMG
+DMG_TEMP_DIR="dmg_temp"
+rm -rf "$DMG_TEMP_DIR"
+mkdir -p "$DMG_TEMP_DIR"
+
+# Копируем Pano.app туда
+cp -R Pano.app "$DMG_TEMP_DIR/"
+
+# Создаем симлинк на Applications
+ln -s /Applications "$DMG_TEMP_DIR/Applications"
+
+# Создаем сжатый образ диска (UDZO)
+hdiutil create -volname "Pano" -srcfolder "$DMG_TEMP_DIR" -ov -format UDZO "$DMG_NAME"
+
+# Очищаем временную директорию
+rm -rf "$DMG_TEMP_DIR"
+
+if [ $? -ne 0 ]; then
+  echo " ❌ Ошибка создания DMG образа."
+  exit 1
+fi
+
+echo "   ✅ Образ диска $DMG_NAME успешно создан."
+
+echo "===================================================="
 echo " 🧮 Вычисление SHA-256 хэша..."
 echo "===================================================="
 SHA256_HASH=$(shasum -a 256 "$ZIP_NAME" | awk '{print $1}')
