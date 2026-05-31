@@ -74,26 +74,44 @@ graph TD
 
 ---
 
-## 🛠️ Installation & Quick Start
+## 🛠️ Installation & Setup
 
-### 1. Prerequisites
-* **macOS** 12.0+ (Montery, Ventura, Sonoma, Sequoia)
-* **Node.js** (v16 or higher)
-* **Swift Compiler** (installed automatically by macOS Command Line Tools or Xcode)
+Choose the installation method that fits you best:
 
-### 2. Fast Setup
-1. **Clone or Download** the project to your local workspace.
-2. **Open `run_kvm.sh`** in a text editor and enter your TV's local IP address:
+### Option 1: Fast Installation via Homebrew Cask (Recommended)
+If you use Homebrew, you can install Pano in a single terminal command:
+```bash
+brew install --cask ponano/pano/pano
+```
+This automatically taps the repository, downloads the latest release, and installs `Pano.app` into your Applications folder.
+
+### Option 2: Manual Installation via DMG Disk Image
+If you prefer a standard macOS installation:
+1. Open the [Pano Releases](https://github.com/ponano/androidtvremotemacos/releases) page on GitHub.
+2. Download the latest `Pano.dmg` file.
+3. Open the downloaded `.dmg` file and drag the **Pano** icon into your **Applications** folder.
+
+### Option 3: Developer / Source Code Installation
+If you want to build and run Pano from source:
+1. **Prerequisites**: Ensure you have **macOS 12.0+**, **Node.js (v16+)**, and the **Swift Compiler** installed (comes with Xcode Command Line Tools).
+2. **Clone or Download** this repository.
+3. **Configure IP**: Open the file `run_kvm.sh` in a text editor and set your TV's local IP address:
    ```bash
-   TV_IP="192.168.1.100"  # Replace with your Android TV IP
+   TV_IP="192.168.1.100"  # Replace with your TV's IP address
    ```
-3. **Launch the KVM bridge** using your macOS Terminal:
+4. **Run**: Launch the KVM bridge using your Terminal:
    ```bash
    bash run_kvm.sh
    ```
-4. **Complete Pairing**: 
-   On the first launch, a secure popup will appear on your Mac asking for the 6-digit PIN. Type in the PIN displayed on your television screen to complete secure TLS pairing.
-5. **Start Controlling**: Move your cursor to the selected edge of your Mac screen, pause for a moment, and start navigating your TV!
+
+---
+
+### 🔑 Secure Pairing (First Launch Only)
+On the first launch of Pano (using any method above):
+1. A secure popup will appear on your Mac screen asking for a 6-digit PIN.
+2. Type in the 6-digit PIN displayed on your Android TV / Google TV screen.
+3. Once completed, your TLS certificates are saved securely in `~/.tv_kvm_credentials/` (or `~/.credentials/` in test mode) and you won't need to pair again.
+4. **Start Controlling**: Move your cursor to the selected edge of your Mac screen, pause for a moment (800ms), and start navigating your TV!
 
 ---
 

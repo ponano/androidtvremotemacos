@@ -74,26 +74,44 @@ graph TD
 
 ---
 
-## 🛠️ 安装与快速开始
+## 🛠️ 安装与配置
 
-### 1. 前提条件
-* **macOS** 12.0+ (Monterey, Ventura, Sonoma, Sequoia)
-* **Node.js** (v16 或更高版本)
-* **Swift 编译器** (macOS Command Line Tools 或 Xcode 启动时会自动默认安装)
+请选择最适合您的安装方式：
 
-### 2. 快速设置步骤
-1. **下载或克隆 (Clone)** 本项目到您的本地工作目录。
-2. **用文本编辑器打开 `run_kvm.sh`**，填写您电视的局域网 IP 地址：
+### 选项 1：通过 Homebrew Cask 快速安装 (推荐)
+如果您使用 Homebrew，只需在终端中运行一行命令即可安装 Pano：
+```bash
+brew install --cask ponano/pano/pano
+```
+这会自动连接 Tap 仓库，下载最新版本并将 `Pano.app` 安装到您的“应用程序” (Applications) 文件夹中。
+
+### 选项 2：通过 DMG 磁盘映像手动安装
+如果您更喜欢标准的 macOS 图形化安装方式：
+1. 打开 GitHub 上的 [Pano Releases](https://github.com/ponano/androidtvremotemacos/releases) 页面。
+2. 下载最新的 `Pano.dmg` 文件。
+3. 双击打开下载的 `.dmg` 文件，将 **Pano** 图标拖拽到 **Applications** (应用程序) 文件夹中。
+
+### 选项 3：从源代码编译安装 (适用于开发者)
+如果您希望手动编译并运行 Pano：
+1. **前提条件**：确保您的 Mac 满足 **macOS 12.0+**，已安装 **Node.js (v16+)** 以及 **Swift 编译器** (可以通过 Xcode Command Line Tools 自动安装)。
+2. **下载或克隆**此仓库到本地。
+3. **配置电视 IP**：用文本编辑器打开 `run_kvm.sh`，设置您电视的局域网 IP 地址：
    ```bash
-   TV_IP="192.168.1.100"  # 替换为您的 Android TV IP 地址
+   TV_IP="192.168.1.100"  # 替换为您的电视 IP 地址
    ```
-3. **在 macOS 终端中启动桥接器**:
+4. **运行**：在终端中启动 KVM 桥接器：
    ```bash
    bash run_kvm.sh
    ```
-4. **完成安全配对**: 
-   首次启动时，Mac 屏幕上会出现一个安全的密码输入框。输入电视屏幕上显示的 6 位 PIN 码，即可完成安全的 TLS 证书交换和配对。
-5. **开始体验**: 将鼠标移向所选的 Mac 屏幕边缘，停留片刻，即可开始流畅操控电视！
+
+---
+
+### 🔑 安全配对 (仅限首次启动)
+无论使用上述哪种方式，在首次启动 Pano 时：
+1. Mac 屏幕上会出现一个安全的密码输入框，要求输入 6 位 PIN 码。
+2. 输入您 Android TV / Google TV 电视屏幕上显示的 6 位 PIN 码。
+3. 配对完成后，您的 TLS 证书将安全地保存在本地 `~/.tv_kvm_credentials/` (或测试模式下的 `~/.credentials/` ) 目录中，后续启动无需再次配对。
+4. **开始控制**：将鼠标移向所选的 Mac 屏幕边缘，停留片刻 (800毫秒)，即可开始控制您的电视！
 
 ---
 

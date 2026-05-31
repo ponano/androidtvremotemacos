@@ -74,26 +74,44 @@ graph TD
 
 ---
 
-## 🛠️ Installation & Démarrage rapide
+## 🛠️ Installation & Configuration
 
-### 1. Prérequis
-* **macOS** 12.0+ (Monterey, Ventura, Sonoma, Sequoia)
-* **Node.js** (version 16 ou supérieure)
-* **Compilateur Swift** (installé automatiquement par les outils de ligne de commande macOS ou Xcode)
+Choisissez la méthode d'installation qui vous convient le mieux :
 
-### 2. Configuration rapide
-1. **Clonez ou téléchargez** le projet dans votre dossier local.
-2. **Ouvrez `run_kvm.sh`** dans un éditeur de texte et saisissez l'adresse IP locale de votre téléviseur :
+### Option 1 : Installation rapide via Homebrew Cask (Recommandé)
+Si vous utilisez Homebrew, vous pouvez installer Pano avec une seule commande dans votre terminal :
+```bash
+brew install --cask ponano/pano/pano
+```
+Cette commande connecte automatiquement le dépôt, télécharge la dernière version et installe `Pano.app` directement dans votre dossier Applications.
+
+### Option 2 : Installation manuelle via l'image disque DMG
+Si vous préférez un installateur graphique standard pour macOS :
+1. Ouvrez la page des [Versions de Pano (Releases)](https://github.com/ponano/androidtvremotemacos/releases) sur GitHub.
+2. Téléchargez le dernier fichier `Pano.dmg`.
+3. Ouvrez le fichier `.dmg` téléchargé et glissez l'icône **Pano** dans votre dossier **Applications**.
+
+### Option 3 : Installation à partir du code source (Pour les développeurs)
+Si vous souhaitez compiler et exécuter Pano manuellement :
+1. **Prérequis** : Assurez-vous d'avoir **macOS 12.0+**, **Node.js (v16+)** et le **compilateur Swift** installé (inclus dans les outils de ligne de commande Xcode).
+2. **Clonez ou téléchargez** ce dépôt.
+3. **Configurer l'IP** : Ouvrez le fichier `run_kvm.sh` dans un éditeur de texte et spécifiez l'adresse IP locale de votre téléviseur :
    ```bash
-   TV_IP="192.168.1.100"  # Remplacez par l'IP de votre Android TV
+   TV_IP="192.168.1.100"  # Remplacez par l'IP de votre téléviseur
    ```
-3. **Lancez le pont KVM** via le Terminal macOS :
+4. **Exécuter** : Lancez le pont KVM via le Terminal :
    ```bash
    bash run_kvm.sh
    ```
-4. **Associer les appareils** : 
-   Lors du premier démarrage, un popup sécurisé apparaîtra sur votre Mac demandant un code PIN à 6 chiffres. Saisissez le code PIN affiché sur l'écran de votre téléviseur pour finaliser l'association TLS sécurisée.
-5. **C'est prêt** : Déplacez le curseur vers le bord choisi de l'écran du Mac, maintenez-le brièvement et commencez à contrôler le téléviseur !
+
+---
+
+### 🔑 Association sécurisée (Premier démarrage uniquement)
+Lors du premier démarrage de Pano (quelle que soit la méthode choisie) :
+1. Un popup sécurisé apparaîtra sur l'écran de votre Mac demandant un code PIN à 6 chiffres.
+2. Saisissez le code PIN à 6 chiffres affiché sur l'écran de votre Android TV / Google TV.
+3. Une fois terminé, vos certificats TLS seront enregistrés en toute sécurité dans `~/.tv_kvm_credentials/` (ou `~/.credentials/` en mode test) et vous n'aurez plus besoin de refaire l'association.
+4. **Commencer à contrôler** : Déplacez votre curseur vers le bord sélectionné de l'écran de votre Mac, maintenez-le brièvement (800 ms) et commencez à naviguer sur votre téléviseur !
 
 ---
 
