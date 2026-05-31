@@ -32,17 +32,48 @@ cp -f package-lock.json Pano.app/Contents/Resources/bridge/
 cp -rf node_modules Pano.app/Contents/Resources/bridge/
 
 echo "===================================================="
-echo " 🛠️ Компиляция нативного релиза на Swift..."
+echo " 🛠️ Компиляция универсального релиза на Swift (Intel + Apple Silicon)..."
 echo "===================================================="
+
+# Компиляция под Intel (x86_64)
+echo "   ↳ Сборка под Intel (x86_64)..."
 swiftc Sources/App/*.swift Sources/Models/*.swift Sources/Services/*.swift Sources/UI/*.swift Sources/Tests/*.swift \
+  -target x86_64-apple-macos12.0 \
   -O -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Info.plist \
   -framework Speech -framework AVFoundation \
-  -o Pano.app/Contents/MacOS/Pano
+  -o Pano_x86_64
 
 if [ $? -ne 0 ]; then
-  echo " ❌ Ошибка компиляции приложения."
+  echo " ❌ Ошибка компиляции под Intel (x86_64)."
   exit 1
 fi
+
+# Компиляция под Apple Silicon (arm64)
+echo "   ↳ Сборка под Apple Silicon (arm64)..."
+swiftc Sources/App/*.swift Sources/Models/*.swift Sources/Services/*.swift Sources/UI/*.swift Sources/Tests/*.swift \
+  -target arm64-apple-macos12.0 \
+  -O -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Info.plist \
+  -framework Speech -framework AVFoundation \
+  -o Pano_arm64
+
+if [ $? -ne 0 ]; then
+  echo " ❌ Ошибка компиляции под Apple Silicon (arm64)."
+  rm -f Pano_x86_64
+  exit 1
+fi
+
+# Объединение в Universal Binary с помощью lipo
+echo "   ↳ Создание Universal Binary с помощью lipo..."
+lipo -create Pano_x86_64 Pano_arm64 -output Pano.app/Contents/MacOS/Pano
+
+if [ $? -ne 0 ]; then
+  echo " ❌ Ошибка создания Universal Binary."
+  rm -f Pano_x86_64 Pano_arm64
+  exit 1
+fi
+
+# Очистка временных файлов
+rm -f Pano_x86_64 Pano_arm64
 
 echo "===================================================="
 echo " 🛠️ Подпись кода с правами доступа к микрофону..."

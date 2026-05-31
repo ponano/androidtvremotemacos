@@ -1,6 +1,6 @@
 cask "pano" do
   version "1.0.0"
-  sha256 "9d8c210750b221b709357cb757f6b2e367e95f228937772bf6f03374758b2c55"
+  sha256 "607956f85a780a55ae0c87d4b8f748e96b212f46902981b635dba463ded51529"
 
   # Укажите здесь URL, куда вы загрузите созданный pano.zip
   # Например, GitHub Releases:

@@ -8,6 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-macOS%2012.0%2B-blue?style=for-the-badge&logo=apple&logoColor=white" alt="macOS Support" />
+  <img src="https://img.shields.io/badge/CPU-Universal%20(Intel%20%26%20Apple%20Silicon)-success?style=for-the-badge" alt="Universal Binary" />
   <img src="https://img.shields.io/badge/Node.js-%3E%3D16.0.0-green?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js version" />
   <img src="https://img.shields.io/badge/Protocol-Google%20TV%20Remote%20V2-orange?style=for-the-badge" alt="Google TV Protocol V2" />
   <img src="https://img.shields.io/badge/CPU-0%25%20Overhead-success?style=for-the-badge" alt="0% CPU Overhead" />
